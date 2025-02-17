@@ -89,5 +89,9 @@ pw.setWindowTitle('pyqtgraph example: customPlot')
 r = pg.PolyLineROI([(0,0), (10, 10)])
 pw.addItem(r)
 
+#p = pg.Point(10,10)
+
+
+
 if __name__ == '__main__':
     pg.exec()
