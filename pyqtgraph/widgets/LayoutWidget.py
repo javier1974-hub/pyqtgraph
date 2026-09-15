@@ -9,8 +9,8 @@ class LayoutWidget(QtWidgets.QWidget):
 
     def __init__(self, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
-        self.layout = QtWidgets.QGridLayout()
-        self.setLayout(self.layout)
+        self.layout_ = QtWidgets.QGridLayout()
+        self.setLayout(self.layout_)
         self.items = {}
         self.rows = {}
         self.currentRow = 0
@@ -27,28 +27,28 @@ class LayoutWidget(QtWidgets.QWidget):
         self.currentCol += colspan
         return self.currentCol-colspan
         
-    def nextCol(self, *args, **kargs):
+    def nextCol(self, *args, **kwargs):
         """Alias of nextColumn"""
-        return self.nextColumn(*args, **kargs)
+        return self.nextColumn(*args, **kwargs)
         
         
-    def addLabel(self, text=' ', row=None, col=None, rowspan=1, colspan=1, **kargs):
+    def addLabel(self, text=' ', row=None, col=None, rowspan=1, colspan=1, **kwargs):
         """
         Create a QLabel with *text* and place it in the next available cell (or in the cell specified)
         All extra keyword arguments are passed to QLabel().
         Returns the created widget.
         """
-        text = QtWidgets.QLabel(text, **kargs)
+        text = QtWidgets.QLabel(text, **kwargs)
         self.addWidget(text, row, col, rowspan, colspan)
         return text
         
-    def addLayout(self, row=None, col=None, rowspan=1, colspan=1, **kargs):
+    def addLayout(self, row=None, col=None, rowspan=1, colspan=1, **kwargs):
         """
         Create an empty LayoutWidget and place it in the next available cell (or in the cell specified)
         All extra keyword arguments are passed to :func:`LayoutWidget.__init__ <pyqtgraph.LayoutWidget.__init__>`
         Returns the created widget.
         """
-        layout = LayoutWidget(**kargs)
+        layout = LayoutWidget(**kwargs)
         self.addWidget(layout, row, col, rowspan, colspan)
         return layout
         
@@ -71,7 +71,7 @@ class LayoutWidget(QtWidgets.QWidget):
         self.rows[row][col] = item
         self.items[item] = (row, col)
         
-        self.layout.addWidget(item, row, col, rowspan, colspan)
+        self.layout_.addWidget(item, row, col, rowspan, colspan)
 
     def getWidget(self, row, col):
         """Return the widget in (*row*, *col*)"""

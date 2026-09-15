@@ -181,7 +181,8 @@ class ImageView(QtWidgets.QWidget):
             self.imageItem = ImageItem()
         else:
             self.imageItem = imageItem
-            self.setImage(imageItem.image, autoRange=False, autoLevels=False, transform=imageItem.transform())
+            if imageItem.image is not None:
+                self.setImage(imageItem.image, autoRange=False, autoLevels=False, transform=imageItem.transform())
         self.view.addItem(self.imageItem)
         self.currentIndex = 0
         
@@ -472,12 +473,12 @@ class ImageView(QtWidgets.QWidget):
         """Set the min/max intensity levels automatically to match the image data."""
         self.setLevels(rgba=self._imageLevels)
 
-    def setLevels(self, *args, **kwds):
+    def setLevels(self, *args, **kwargs):
         """Set the min/max (bright and dark) levels.
         
         See :func:`HistogramLUTItem.setLevels <pyqtgraph.HistogramLUTItem.setLevels>`.
         """
-        self.ui.histogram.setLevels(*args, **kwds)
+        self.ui.histogram.setLevels(*args, **kwargs)
 
     def autoRange(self):
         """Auto scale and pan the view around the image such that the image fills the view."""
@@ -571,6 +572,7 @@ class ImageView(QtWidgets.QWidget):
         else:
             self.play(0)
         
+    @QtCore.Slot()
     def timeout(self):
         now = perf_counter()
         dt = now - self.lastPlayTime
@@ -598,6 +600,7 @@ class ImageView(QtWidgets.QWidget):
         if self.axes['t'] is not None:
             self.setCurrentIndex(self.currentIndex + n)
 
+    @QtCore.Slot()
     def normRadioChanged(self):
         self.imageDisp = None
         self.updateImage()
@@ -605,6 +608,7 @@ class ImageView(QtWidgets.QWidget):
         self.roiChanged()
         self.sigProcessingChanged.emit(self)
     
+    @QtCore.Slot()
     def updateNorm(self):
         if self.ui.normTimeRangeCheck.isChecked():
             self.normRgn.show()
@@ -623,6 +627,7 @@ class ImageView(QtWidgets.QWidget):
             self.roiChanged()
             self.sigProcessingChanged.emit(self)
 
+    @QtCore.Slot(bool)
     def normToggled(self, b):
         self.ui.normGroup.setVisible(b)
         self.normRoi.setVisible(b and self.ui.normROICheck.isChecked())
@@ -631,6 +636,7 @@ class ImageView(QtWidgets.QWidget):
     def hasTimeAxis(self):
         return 't' in self.axes and self.axes['t'] is not None
 
+    @QtCore.Slot()
     def roiClicked(self):
         showRoiPlot = False
         if self.ui.roiBtn.isChecked():
@@ -665,6 +671,7 @@ class ImageView(QtWidgets.QWidget):
             
         self.ui.roiPlot.setVisible(showRoiPlot)
 
+    @QtCore.Slot()
     def roiChanged(self):
         # Extract image data from ROI
         if self.image is None:
@@ -772,16 +779,14 @@ class ImageView(QtWidgets.QWidget):
             (sind, start) = self.timeIndex(self.normRgn.lines[0])
             (eind, end) = self.timeIndex(self.normRgn.lines[1])
             #print start, end, sind, eind
-            n = image[sind:eind+1].mean(axis=0)
-            n.shape = (1,) + n.shape
+            n = image[sind:eind+1].mean(axis=0, keepdims=True)
             if div:
                 norm /= n
             else:
                 norm -= n
                 
         if self.ui.normFrameCheck.isChecked() and image.ndim == 3:
-            n = image.mean(axis=1).mean(axis=1)
-            n.shape = n.shape + (1, 1)
+            n = image.mean(axis=(1, 2), keepdims=True)
             if div:
                 norm /= n
             else:
@@ -798,6 +803,7 @@ class ImageView(QtWidgets.QWidget):
                 
         return norm
         
+    @QtCore.Slot()
     def timeLineChanged(self):
         if not self.ignoreTimeLine:
             self.play(0)
@@ -898,7 +904,8 @@ class ImageView(QtWidgets.QWidget):
             self.updateImage()
         else:
             self.imageItem.save(fileName)
-            
+
+    @QtCore.Slot()
     def exportClicked(self):
         fileName, _ = QtWidgets.QFileDialog.getSaveFileName()
         if not fileName:
@@ -915,6 +922,7 @@ class ImageView(QtWidgets.QWidget):
         self.exportAction.triggered.connect(self.exportClicked)
         self.menu.addAction(self.exportAction)
         
+    @QtCore.Slot()
     def menuClicked(self):
         if self.menu is None:
             self.buildMenu()

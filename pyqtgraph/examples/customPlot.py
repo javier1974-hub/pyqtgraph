@@ -11,9 +11,9 @@ from pyqtgraph.Qt import QtCore
 
 
 class CustomViewBox(pg.ViewBox):
-    def __init__(self, *args, **kwds):
-        kwds['enableMenu'] = False
-        pg.ViewBox.__init__(self, *args, **kwds)
+    def __init__(self, *args, **kwargs):
+        kwargs['enableMenu'] = False
+        pg.ViewBox.__init__(self, *args, **kwargs)
         self.setMouseMode(self.RectMode)
         
     ## reimplement right-click to zoom out
@@ -29,8 +29,8 @@ class CustomViewBox(pg.ViewBox):
             pg.ViewBox.mouseDragEvent(self, ev, axis=axis)
 
 class CustomTickSliderItem(pg.TickSliderItem):
-    def __init__(self, *args, **kwds):
-        pg.TickSliderItem.__init__(self, *args, **kwds)
+    def __init__(self, *args, **kwargs):
+        pg.TickSliderItem.__init__(self, *args, **kwargs)
         
         self.all_ticks = {}
         self._range = [0,1]
@@ -79,7 +79,7 @@ pw.plot(x=dates, y=[1,6,2,4,3,5,6,8], symbol='o')
 # Using allowAdd and allowRemove to limit user interaction
 tickViewer = CustomTickSliderItem(allowAdd=False, allowRemove=False)
 vb.sigXRangeChanged.connect(tickViewer.updateRange)
-pw.plotItem.layout.addItem(tickViewer, 4, 1)
+pw.plotItem.layout().addItem(tickViewer, 4, 1)
 
 tickViewer.setTicks( [dates[0], dates[2], dates[-1]] )
 

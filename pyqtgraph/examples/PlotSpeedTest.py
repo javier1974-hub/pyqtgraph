@@ -37,7 +37,6 @@ args = parser.parse_args()
 
 if args.use_opengl is not None:
     pg.setConfigOption('useOpenGL', args.use_opengl)
-    pg.setConfigOption('enableExperimental', args.use_opengl)
 use_opengl = pg.getConfigOption('useOpenGL')
 
 # don't limit frame rate to vsync
@@ -47,8 +46,8 @@ QtGui.QSurfaceFormat.setDefaultFormat(sfmt)
 
 
 class MonkeyCurveItem(pg.PlotCurveItem):
-    def __init__(self, *args, **kwds):
-        super().__init__(*args, **kwds)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.monkey_mode = ''
 
     def setMethod(self, value):
@@ -152,7 +151,7 @@ def updateOptions(
     curvePen=pg.mkPen(),
     plotMethod='pyqtgraph',
     fillLevel=False,
-    enableExperimental=use_opengl,
+    enableExperimental=False,
     useOpenGL=use_opengl,
 ):
     pg.setConfigOption('enableExperimental', enableExperimental)

@@ -187,12 +187,12 @@ class EvalNode(Node):
             allowAddInput=True, allowAddOutput=True)
         
         self.ui = QtWidgets.QWidget()
-        self.layout = QtWidgets.QGridLayout()
+        self.layout_ = QtWidgets.QGridLayout()
         self.text = TextEdit(self.update)
-        self.text.setTabStopWidth(30)
+        self.text.setTabStopDistance(30)
         self.text.setPlainText("# Access inputs as args['input_name']\nreturn {'output': None} ## one key per output terminal")
-        self.layout.addWidget(self.text, 1, 0, 1, 2)
-        self.ui.setLayout(self.layout)
+        self.layout_.addWidget(self.text, 1, 0, 1, 2)
+        self.ui.setLayout(self.layout_)
         
     def ctrlWidget(self):
         return self.ui
@@ -260,16 +260,16 @@ class ColumnJoinNode(Node):
         #self.items = []
         
         self.ui = QtWidgets.QWidget()
-        self.layout = QtWidgets.QGridLayout()
-        self.ui.setLayout(self.layout)
+        self.layout_ = QtWidgets.QGridLayout()
+        self.ui.setLayout(self.layout_)
         
         self.tree = TreeWidget()
         self.addInBtn = QtWidgets.QPushButton('+ Input')
         self.remInBtn = QtWidgets.QPushButton('- Input')
         
-        self.layout.addWidget(self.tree, 0, 0, 1, 2)
-        self.layout.addWidget(self.addInBtn, 1, 0)
-        self.layout.addWidget(self.remInBtn, 1, 1)
+        self.layout_.addWidget(self.tree, 0, 0, 1, 2)
+        self.layout_.addWidget(self.addInBtn, 1, 0)
+        self.layout_.addWidget(self.remInBtn, 1, 1)
 
         self.addInBtn.clicked.connect(self.addInput)
         self.remInBtn.clicked.connect(self.remInput)
@@ -431,10 +431,10 @@ class Slice(CtrlNode):
     """
     nodeName = 'Slice'
     uiTemplate = [
-        ('axis', 'intSpin', {'value': 0, 'min': 0, 'max': 1e6}),
-        ('start', 'intSpin', {'value': 0, 'min': -1e6, 'max': 1e6}),
-        ('stop', 'intSpin', {'value': -1, 'min': -1e6, 'max': 1e6}),
-        ('step', 'intSpin', {'value': 1, 'min': -1e6, 'max': 1e6}),
+        ('axis', 'intSpin', {'value': 0, 'min': 0, 'max': 1000000}),
+        ('start', 'intSpin', {'value': 0, 'min': -1000000, 'max': 1000000}),
+        ('stop', 'intSpin', {'value': -1, 'min': -1000000, 'max': 1000000}),
+        ('step', 'intSpin', {'value': 1, 'min': -1000000, 'max': 1000000}),
     ]
     
     def processData(self, data):

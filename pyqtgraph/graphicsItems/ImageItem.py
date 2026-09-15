@@ -41,7 +41,7 @@ class ImageItem(GraphicsObject):
     ----------
     image : np.ndarray or None, default None
         Image data.
-    **kargs : dict, optional
+    **kwargs
         Arguments directed to `setImage` and `setOpts`, refer to each method for
         documentation for possible arguments.
 
@@ -63,7 +63,7 @@ class ImageItem(GraphicsObject):
     sigImageChanged = QtCore.Signal()
     sigRemoveRequested = QtCore.Signal(object) 
 
-    def __init__(self, image: np.ndarray | None=None, **kargs):
+    def __init__(self, image: np.ndarray | None=None, **kwargs):
         super().__init__()
         self.menu = None
         self.image = None   ## original image data
@@ -81,9 +81,10 @@ class ImageItem(GraphicsObject):
         self._renderRequired = True
         self._unrenderable = False
         self._xp = None  # either numpy or cupy, to match the image data
-        self._defferedLevels = None
+        self._deferredLevels = None
         self._imageHasNans = None    # None : not yet known
         self._imageNanLocations = None
+        self._defaultAutoLevels = True
 
         self.axisOrder = getConfigOption('imageAxisOrder')
         self._dataTransform = self._inverseDataTransform = QtGui.QTransform()
@@ -94,9 +95,9 @@ class ImageItem(GraphicsObject):
         self.removable = False
 
         if image is not None:
-            self.setImage(image, **kargs)
+            self.setImage(image, **kwargs)
         else:
-            self.setOpts(**kargs)
+            self.setOpts(**kwargs)
 
     def setCompositionMode(self, mode: QtGui.QPainter.CompositionMode):
         """
@@ -168,6 +169,14 @@ class ImageItem(GraphicsObject):
             height = 0.
         return QtCore.QRectF(0., 0., float(width), float(height))
 
+    def setAutoLevels(self, bState: bool):
+        """
+        Controls whether automatic image scaling takes place for this ImageItem,
+        if not otherwise overridden by ``autoLevels`` or ``levels`` keyword
+        arguments in a call to :func:`~pyqtgraph.ImageItem.setImage`.
+        """
+        self._defaultAutoLevels = bState
+
     def setLevels(self, levels: npt.ArrayLike | None, update: bool=True):
         """
         Set image scaling levels.
@@ -200,7 +209,7 @@ class ImageItem(GraphicsObject):
         """
         if self._xp is None:
             self.levels = levels
-            self._defferedLevels = levels
+            self._deferredLevels = levels
             return
         if levels is not None:
             levels = self._xp.asarray(levels)
@@ -367,7 +376,7 @@ class ImageItem(GraphicsObject):
         update : bool, default True
             Controls if image immediately updates to reflect the new options.
 
-        **kwargs : dict, optional
+        **kwargs
             Extra arguments that are directed to the respective methods.  Expected
             keys include:
 
@@ -390,6 +399,8 @@ class ImageItem(GraphicsObject):
         --------
         :meth:`setAutoDownsample`
             Accepts the value of ``kwargs['autoDownsample']``.
+        :meth:`setAutoLevels`
+            Accepts the value of ``kwargs['autoLevels']``.
         :meth:`setNanPolicy`
             Accepts the value of ``kwargs['nanPolicy']``.
         :meth:`setBorder`
@@ -421,8 +432,8 @@ class ImageItem(GraphicsObject):
             self.setLookupTable(kwargs['lut'], update=update)
         if 'levels' in kwargs:
             self.setLevels(kwargs['levels'], update=update)
-        #if 'clipLevel' in kargs:
-            #self.setClipLevel(kargs['clipLevel'])
+        #if 'clipLevel' in kwargs:
+            #self.setClipLevel(kwargs['clipLevel'])
         if 'opacity' in kwargs:
             self.setOpacity(kwargs['opacity'])
         if 'compositionMode' in kwargs:
@@ -434,6 +445,8 @@ class ImageItem(GraphicsObject):
             self.menu = None
         if 'autoDownsample' in kwargs:
             self.setAutoDownsample(kwargs['autoDownsample'])
+        if 'autoLevels' in kwargs:
+            self.setAutoLevels(kwargs['autoLevels'])
         if 'nanPolicy' in kwargs:
             self.setNanPolicy(kwargs['nanPolicy'])
         if 'rect' in kwargs:
@@ -452,7 +465,7 @@ class ImageItem(GraphicsObject):
 
         Parameters
         ----------
-        *args : tuple
+        *args : QRectF, QRect, QPointF, QSizeF, or float
             Contains one of :class:`QRectF`, :class:`QRect`, or arguments that can be
             used to construct :class:`QRectF`.
 
@@ -533,15 +546,15 @@ class ImageItem(GraphicsObject):
             If ``True``, ImageItem will automatically select levels based on the maximum
             and minimum values encountered in the data. For performance reasons, this
             search sub-samples the images and may miss individual bright or dark points
-            in the data set. If ``False``, the search will be omitted. If ``None``, and
-            the levels keyword argument is given, it will switch to ``False``, if the
-            `levels` argument is omitted, it will switch to ``True``.
+            in the data set. If ``False``, the search will be omitted. If ``None``, the
+            value set by :func:`~pyqtgraph.ImageItem.setOpts` is used, unless a ``levels``
+            keyword argument is given, which implies `False`.
         levelSamples : int, default 65536
             Only used when ``autoLevels is None``.  When determining minimum and
             maximum values, ImageItem only inspects a subset of pixels no larger than
             this number. Setting this larger than the total number of pixels considers
             all values. See `quickMinMax`.
-        **kwargs : dict, optional
+        **kwargs
             Extra arguments that are passed to `setOpts`.
 
         See Also
@@ -599,7 +612,8 @@ class ImageItem(GraphicsObject):
         profile()
 
         if autoLevels is None:
-            autoLevels = 'levels' not in kwargs
+            autoLevels = False if 'levels' in kwargs else self._defaultAutoLevels
+
         if autoLevels:
             mn, mx = self.quickMinMax( targetSize=levelSamples )
             # mn and mx can still be NaN if the data is all-NaN
@@ -621,9 +635,9 @@ class ImageItem(GraphicsObject):
 
         if gotNewData:
             self.sigImageChanged.emit()
-        if self._defferedLevels is not None:
-            levels = self._defferedLevels
-            self._defferedLevels = None
+        if self._deferredLevels is not None:
+            levels = self._deferredLevels
+            self._deferredLevels = None
             self.setLevels((levels))
 
     def _update_data_transforms(self, axisOrder: str='col-major'):
@@ -716,10 +730,10 @@ class ImageItem(GraphicsObject):
             data = data[::2, ::] if h > w else data[::, ::2]
         return self._xp.nanmin(data), self._xp.nanmax(data)
 
-    def updateImage(self, *args, **kargs):
+    def updateImage(self, *args, **kwargs):
         defaults = {
             'autoLevels': False,
-        } | kargs
+        } | kwargs
         return self.setImage(*args, **defaults)
 
     def render(self):
@@ -749,6 +763,8 @@ class ImageItem(GraphicsObject):
             )
             self._imageNanLocations = None
 
+        image = self.image
+
         if self.autoDownsample:
             xds, yds = self._computeDownsampleFactors()
             if xds is None:
@@ -756,15 +772,17 @@ class ImageItem(GraphicsObject):
 
             axes = [1, 0] if self.axisOrder == 'row-major' else [0, 1]
             nan_policy = self._nanPolicy if self._imageHasNans else 'propagate'
-            image = fn.downsample(self.image, xds, axis=axes[0], nanPolicy=nan_policy)
+            image = fn.downsample(image, xds, axis=axes[0], nanPolicy=nan_policy)
             image = fn.downsample(image, yds, axis=axes[1], nanPolicy=nan_policy)
             self._lastDownsample = (xds, yds)
+
+            # changes in view transform cause changes in downsampling factors,
+            # which invalidates any previously calculated nan locations
+            self._imageNanLocations = None
 
             # Check if downsampling reduced the image size to zero due to inf values.
             if image.size == 0:
                 return
-        else:
-            image = self.image
 
         # Convert single-channel image to 2D array
         if image.ndim == 3 and image.shape[-1] == 1:
@@ -838,7 +856,7 @@ class ImageItem(GraphicsObject):
         self._renderRequired = False
         self._unrenderable = False
 
-    def paint(self, painter, *args):
+    def paint(self, painter: QtGui.QPainter, *args):
         profile = debug.Profiler()
         if self.image is None:
             return
@@ -856,13 +874,13 @@ class ImageItem(GraphicsObject):
             if self.axisOrder == 'col-major'
             else self.image.shape[:2][::-1]
         )
-        painter.drawImage(QtCore.QRectF(0,0,*shape), self.qimage)
+        painter.drawImage(QtCore.QRectF(0, 0, *shape), self.qimage)
         profile('p.drawImage')
         if self.border is not None:
             painter.setPen(self.border)
             painter.drawRect(self.boundingRect())
 
-    def save(self, fileName: str | pathlib.Path, *args) -> None:
+    def save(self, fileName: str | pathlib.Path, *args, **kwargs) -> None:
         """
         Save this image to file.
 
@@ -873,8 +891,10 @@ class ImageItem(GraphicsObject):
         ----------
         fileName : os.PathLike
             File path to save the image data to.
-        *args : tuple
+        *args
             Arguments that are passed to :meth:`QImage.save <QImage.save>`.
+        *kwargs
+            Keyword arguments that are passed to :meth:`QImage.save <QImage.save>`.
             
         See Also
         --------
@@ -919,7 +939,7 @@ class ImageItem(GraphicsObject):
         targetImageSize : int, default 200
             This parameter is used if ``step == 'auto'``, If so, the `step` size is
             calculated by ``step = ceil(image.shape[0] / targetImageSize)``.
-        **kwargs : dict, optional
+        **kwargs
             Dictionary of arguments passed to :func:`numpy.histogram()`.
         
         Returns
@@ -951,7 +971,6 @@ class ImageItem(GraphicsObject):
                 RuntimeWarning,
                 stacklevel=2
             )
-
         # This method is also used when automatically computing levels.
         if self.image is None or self.image.size == 0:
             return None, None

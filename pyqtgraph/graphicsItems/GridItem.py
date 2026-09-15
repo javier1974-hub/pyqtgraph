@@ -17,9 +17,6 @@ class GridItem(UIGraphicsItem):
 
     def __init__(self, pen='default', textPen='default'):
         UIGraphicsItem.__init__(self)
-        #QtWidgets.QGraphicsItem.__init__(self, *args)
-        #self.setFlag(QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemClipsToShape)
-        #self.setCacheMode(QtWidgets.QGraphicsItem.CacheMode.DeviceCoordinateCache)
 
         self.opts = {}
 
@@ -97,14 +94,20 @@ class GridItem(UIGraphicsItem):
         if self.picture is None:
             #print "no pic, draw.."
             self.generatePicture()
-        p.drawPicture(QtCore.QPointF(0, 0), self.picture)
+        if self.picture is not None:
+            p.drawPicture(QtCore.QPointF(0, 0), self.picture)
         #p.setPen(QtGui.QPen(QtGui.QColor(255,0,0)))
         #p.drawLine(0, -100, 0, 100)
         #p.drawLine(-100, 0, 100, 0)
         #print "drawing Grid."
-        
-        
+
+
     def generatePicture(self):
+        lvr = self.boundingRect()
+        device_transform = self.deviceTransform_()
+        if lvr.isNull() or device_transform is None:
+            return
+
         self.picture = QtGui.QPicture()
         p = QtGui.QPainter()
         p.begin(self.picture)
@@ -112,7 +115,6 @@ class GridItem(UIGraphicsItem):
         vr = self.getViewWidget().rect()
         unit = self.pixelWidth(), self.pixelHeight()
         dim = [vr.width(), vr.height()]
-        lvr = self.boundingRect()
         ul = np.array([lvr.left(), lvr.top()])
         br = np.array([lvr.right(), lvr.bottom()])
         
@@ -183,15 +185,14 @@ class GridItem(UIGraphicsItem):
                             x = ul[0] + unit[0]*3
                             y = p1[1] + unit[1]
                         texts.append((QtCore.QPointF(x, y), "%g"%p1[ax]))
-        tr = self.deviceTransform()
-        p.setWorldTransform(fn.invertQTransform(tr))
+        p.setWorldTransform(fn.invertQTransform(device_transform))
 
         if textPen is not None and len(texts) > 0:
             # if there is at least one text, then c is set
             textColor.setAlpha(c * 2)
             p.setPen(QtGui.QPen(textColor))
             for t in texts:
-                x = tr.map(t[0]) + Point(0.5, 0.5)
+                x = device_transform.map(t[0]) + Point(0.5, 0.5)
                 p.drawText(x, t[1])
 
         p.end()

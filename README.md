@@ -6,9 +6,9 @@ PyQtGraph
 [![Build Status](https://github.com/pyqtgraph/pyqtgraph/workflows/main/badge.svg)](https://github.com/pyqtgraph/pyqtgraph/actions/?query=workflow%3Amain)
 [![Documentation Status](https://readthedocs.org/projects/pyqtgraph/badge/?version=latest)](https://pyqtgraph.readthedocs.io/en/latest/?badge=latest)
 
-A pure-Python graphics library for PyQt5/PyQt6/PySide2/PySide6
+A pure-python graphics library thatm uses the Qt framework.
 
-Copyright 2024 PyQtGraph developers
+Copyright 2026 PyQtGraph developers
 
 <https://www.pyqtgraph.org>
 
@@ -20,43 +20,42 @@ heavy leverage of numpy for number crunching, Qt's GraphicsView framework for
 Requirements
 ------------
 
-PyQtGraph has adopted [NEP 29](https://numpy.org/neps/nep-0029-deprecation_policy.html).
+PyQtGraph has adopted [SPEC 0](https://scientific-python.org/specs/spec-0000/).
 
 This project supports:
 
-* All minor versions of Python released 42 months prior to the project, and at minimum the two latest minor versions.
-* All minor versions of numpy released in the 24 months prior to the project, and at minimum the last three minor versions.
-* Qt5 5.15, and Qt6 6.2+
+* Python versions released within the last 3 years
+* NumPy, SciPy and matplotlib versions released within the last 2 years
+* Qt5 5.15 or Qt6 6.8+
 
 Currently this means:
 
-* Python 3.10+
-* Qt 5.15, 6.2+
-* [PyQt5](https://www.riverbankcomputing.com/software/pyqt/),
-  [PyQt6](https://www.riverbankcomputing.com/software/pyqt/),
-  [PySide2](https://wiki.qt.io/Qt_for_Python), or
+* Python 3.12+
+* Qt 5.15 or 6.8+
+* [PyQt5](https://www.riverbankcomputing.com/software/pyqt/), or
+  [PyQt6](https://www.riverbankcomputing.com/software/pyqt/), or
   [PySide6](https://wiki.qt.io/Qt_for_Python)
-* [`numpy`](https://github.com/numpy/numpy) 1.24+
+* [`numpy`](https://github.com/numpy/numpy) 2.2+
 
-### Optional added functionalities
+Optional Dependencies for Added Functionality
+---------------------------------------------
 
-Through 3rd party libraries, additional functionality may be added to PyQtGraph, see the table below for a summary.
+Through 3rd party libraries, additional functionality may be added to PyQtGraph, see
+the table below for a summary.
 
 | Library        | Added functionality |
-|----------------|-|
+| -------------- | - |
 | [`scipy`]      | <ul><li> Image processing through [`ndimage`]</li><li> Data array filtering through [`signal`] </li><ul> |
-| [`pyopengl`]   | <ul><li> 3D graphics </li><li> Faster image processing </li></ul> |
 | [`h5py`]       | <ul><li> Export in hdf5 format </li></ul> |
 | [`colorcet`]   | <ul><li> Add a collection of perceptually uniform colormaps </li></ul> |
 | [`matplotlib`] | <ul><li> Export of PlotItem in matplotlib figure </li><li> Add matplotlib collection of colormaps </li></ul> |
-| [`cupy`]       | <ul><li> CUDA-enhanced image processing </li><li> Note: On Windows, CUDA toolkit must be >= 11.1 </li></ul> |
+| [`cupy`]       | <ul><li> CUDA-enhanced image processing </li></ul> |
 | [`numba`]      | <ul><li> Faster image processing </li></ul> |
 | [`jupyter_rfb`]| <ul><li> Jupyter Notebook support </li> <li> [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/pyqtgraph/pyqtgraph/HEAD?urlpath=%2Flab%2Ftree%2Fpyqtgraph%2Fexamples%2Fnotebooks) </li> </ul> |
 
 [`scipy`]: https://github.com/scipy/scipy
 [`ndimage`]: https://docs.scipy.org/doc/scipy/reference/ndimage.html
 [`signal`]: https://docs.scipy.org/doc/scipy/reference/signal.html
-[`pyopengl`]: https://github.com/mcfletch/pyopengl
 [`h5py`]: https://github.com/h5py/h5py
 [`colorcet`]: https://github.com/holoviz/colorcet
 [`matplotlib`]: https://github.com/matplotlib/matplotlib
@@ -89,7 +88,34 @@ Documentation
 
 The official documentation lives at [pyqtgraph.readthedocs.io](https://pyqtgraph.readthedocs.io)
 
-The easiest way to learn PyQtGraph is to browse through the examples; run `python -m pyqtgraph.examples` to launch the examples application.
+The easiest way to get familiar with PyQtGraph is to browse through the examples; run
+`python -m pyqtgraph.examples` to launch the examples application.
+
+Benchmarking
+------------
+
+There is support for the `asv` benchmarking library. Should a user have cuda  installed
+on their system, they should edit `asv.conf.json` file, and add the entry
+`"cupy-cuda##x": [""]` to the `matrix.req` section (where `##` is the version of cuda is
+the version of cuda installed on your machine).  It relavent section should look like
+the the following.
+
+
+```json
+...
+    "req": {
+      "pyqt6": [""],
+      "pyqt5": [""],
+      "PySide6-Essentials": [""],
+      "numba": [""],
+      "cupy-cuda##x": [""]  // add this line, replace ## with cuda version
+    }
+...
+```
+
+As a variety of different versions of python and Qt bindings are tested, running the
+full benchmark suite can take a while!
+
 
 Used By
 -------
@@ -100,6 +126,7 @@ Here is a partial listing of some of the applications that make use of PyQtGraph
 * [Antenna Array Analysis](https://github.com/rookiepeng/antenna-array-analysis)
 * [argos](https://github.com/titusjan/argos)
 * [Atomize](https://github.com/Anatoly1010/Atomize)
+* [BEC Widgets](https://github.com/bec-project/bec_widgets)
 * [EnMAP-Box](https://enmap-box.readthedocs.io)
 * [EO Time Series Viewer](https://eo-time-series-viewer.readthedocs.io)
 * [ephyviewer](https://ephyviewer.readthedocs.io)
@@ -118,5 +145,9 @@ Here is a partial listing of some of the applications that make use of PyQtGraph
 * [rapidtide](https://rapidtide.readthedocs.io/en/latest/)
 * [Semi-Supervised Semantic Annotator](https://gitlab.com/s3a/s3a)
 * [STDF-Viewer](https://github.com/noonchen/STDF-Viewer)
+* [strange-attractors-qt](https://github.com/aymenhafeez/strange-attractors-qt)
+* [QT-DataViewer](https://gitlab.tudelft.nl/qutech-qdlabs/qt-dataviewer)
+* [TemCompanion](https://github.com/matao1984/temcompanion)
 
-Do you use PyQtGraph in your own project, and want to add it to the list?  Submit a pull request to update this listing!
+Do you use PyQtGraph in your own project, and want to add it to the list?
+Submit a pull request to update this listing!

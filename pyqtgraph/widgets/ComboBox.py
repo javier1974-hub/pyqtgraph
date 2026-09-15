@@ -1,7 +1,7 @@
 import sys
 from collections import OrderedDict
 
-from ..Qt import QtWidgets
+from ..Qt import QtCore, QtWidgets
 
 __all__ = ['ComboBox']
 
@@ -68,11 +68,11 @@ class ComboBox(QtWidgets.QComboBox):
     
     def ignoreIndexChange(func):
         # Decorator that prevents updates to self._chosenText
-        def fn(self, *args, **kwds):
+        def fn(self, *args, **kwargs):
             prev = self._ignoreIndexChange
             self._ignoreIndexChange = True
             try:
-                ret = func(self, *args, **kwds)
+                ret = func(self, *args, **kwargs)
             finally:
                 self._ignoreIndexChange = prev
             return ret
@@ -82,12 +82,12 @@ class ComboBox(QtWidgets.QComboBox):
         # decorator that blocks signal emission during complex operations
         # and emits currentIndexChanged only if the value has actually
         # changed at the end.
-        def fn(self, *args, **kwds):
+        def fn(self, *args, **kwargs):
             prevVal = self.value()
             blocked = self.signalsBlocked()
             self.blockSignals(True)
             try:
-                ret = func(self, *args, **kwds)
+                ret = func(self, *args, **kwargs)
             finally:
                 self.blockSignals(blocked)
                 
@@ -116,6 +116,7 @@ class ComboBox(QtWidgets.QComboBox):
         # for backward compatibility
         return self.setItems(items)
 
+    @QtCore.Slot(int)
     def indexChanged(self, index):
         # current index has changed; need to remember new 'chosen text'
         if self._ignoreIndexChange:
@@ -146,7 +147,7 @@ class ComboBox(QtWidgets.QComboBox):
         #self.itemsChanged()
     
     @ignoreIndexChange
-    def addItem(self, *args, **kwds):
+    def addItem(self, *args, **kwargs):
         # Need to handle two different function signatures for QComboBox.addItem
         try:
             if isinstance(args[0], str):
@@ -154,13 +155,13 @@ class ComboBox(QtWidgets.QComboBox):
                 if len(args) == 2:
                     value = args[1]
                 else:
-                    value = kwds.get('value', text)
+                    value = kwargs.get('value', text)
             else:
                 text = args[1]
                 if len(args) == 3:
                     value = args[2]
                 else:
-                    value = kwds.get('value', text)
+                    value = kwargs.get('value', text)
         
         except IndexError:
             raise TypeError("First or second argument of addItem must be a string.")

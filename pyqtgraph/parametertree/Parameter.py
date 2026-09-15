@@ -86,7 +86,11 @@ class Parameter(QtCore.QObject):
     sigDefaultChanged(self, default)     Emitted when this parameter's default value has changed
     sigNameChanged(self, name)           Emitted when this parameter's name has changed
     sigOptionsChanged(self, opts)        Emitted when any of this parameter's options have changed
-    sigContextMenu(self, name)           Emitted when a context menu was clicked
+    sigContextMenu(self, path)           Emitted when a context menu item was clicked.
+                                         *path* is a tuple of strings representing the
+                                         full path to the selected item, e.g. ``('action',)``
+                                         for a flat item or ``('submenu', 'action')`` for a
+                                         nested one.
     ===================================  =========================================================
     """
     ## name, type, limits, etc.
@@ -123,8 +127,8 @@ class Parameter(QtCore.QObject):
             #pass
         #return QtCore.QObject.__new__(cls, *args, **opts)
 
-    @staticmethod
-    def create(**opts):
+    @classmethod
+    def create(cls, **opts):
         """
         Static method that creates a new Parameter (or subclass) instance using 
         opts['type'] to select the appropriate class.
@@ -134,10 +138,10 @@ class Parameter(QtCore.QObject):
         """
         typ = opts.get('type', None)
         if typ is None:
-            cls = Parameter
+            klass = cls
         else:
-            cls = PARAM_TYPES[opts['type']]
-        return cls(**opts)
+            klass = PARAM_TYPES[opts['type']]
+        return klass(**opts)
 
     def __init__(self, **opts):
         """
@@ -180,9 +184,31 @@ class Parameter(QtCore.QObject):
                                      internally using the *name* specified above. Note that
                                      this option is not compatible with renamable=True.
                                      (default=None; added in version 0.9.9)
+        ctrlActions                  A set of strings controlling which built-in actions
+                                     appear in the ctrl button menu (the gear icon shown by
+                                     widget-based parameter types). Valid values:
+                                     ``'default'`` (Reset to default), ``'setDefault'``
+                                     (Set as default), ``'enabled'`` (Enable/Disable
+                                     toggle), ``'readonly'`` (Lock/Unlock toggle),
+                                     ``'rename'``, ``'remove'``. Including ``'rename'`` or
+                                     ``'remove'`` here is equivalent to setting
+                                     ``renamable=True`` / ``removable=True``.
+                                     (default: {'default', 'setDefault', 'enabled',
+                                     'readonly'})
+        showCtrlButton               If False, the ctrl button (gear icon) will be hidden
+                                     for widget-based parameter types. The button can be
+                                     shown again later via ``setOpts(showCtrlButton=True)``.
+                                     (default=True)
+        context                      Specifies items for the context menu shown on
+                                     right-click. Accepts a dict, list, or tuple; nested
+                                     structures produce submenus. See
+                                     :func:`~pyqtgraph.parametertree.ParameterItem.build_menu_from_iterable`
+                                     for the accepted format. Clicking an item emits
+                                     sigContextMenu with the full path tuple to that item.
+                                     (default=None)
         =======================      =========================================================
         """
-        QtCore.QObject.__init__(self)
+        super().__init__()
         
         self.opts = {
             'type': None,
@@ -198,9 +224,10 @@ class Parameter(QtCore.QObject):
             # The following intentionally excluded; each parameter type may have a different data type for limits.
             # 'limits': None,
         }
-        name = opts.get('name', None)
-        if not isinstance(name, str):
-            raise TypeError("Parameter must have a string name specified in opts.")
+        try:
+            name = opts['name']
+        except KeyError:
+            raise KeyError("Parameter must have a name specified")
         self.opts.update(opts)
         self.opts['name'] = None
 
@@ -212,16 +239,19 @@ class Parameter(QtCore.QObject):
         self.blockTreeChangeEmit = 0
         self.setName(name)
 
+        # Checks that the parameter class and the specified type match the values registered in 'PARAM_TYPES'
+        if not self.check_type():
+            raise TypeError(
+                f"The specified type '{self.type()}' does not match the class registered in 'PARAM_TYPES'."
+                f"\nExpected class: {PARAM_TYPES.get(self.type(), 'Unknown')}, but got: {self.__class__}."
+                f"\nUse the 'registerParameterType' function to register a type with its associated class in "
+                f"'PARAM_TYPES'.")
+
+
         self.addChildren(self.opts.pop('children', []))
         if 'value' in self.opts and 'default' not in self.opts:
-            warnings.warn(
-                "Parameter has no default value. Pass a default, or use setDefault(). This will no longer set "
-                "an implicit default after January 2025.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
             self.opts['default'] = self.opts['value']
-        value = self.opts.get('value', self.opts.get('default', None))
+        value = self.opts.get('value', self.opts.get('default'))
         modified = 'value' in self.opts
         if value is not None:
             self.setValue(value)
@@ -259,9 +289,25 @@ class Parameter(QtCore.QObject):
             title = self.name()
         return title
 
-    def contextMenu(self, name):
-        """"A context menu entry was clicked"""
-        self.sigContextMenu.emit(self, name)
+    def contextMenu(self, name_or_path):
+        """A context menu entry was clicked.
+
+        *name_or_path* should be a tuple of strings representing the path to
+        the selected item (e.g. ``('action',)`` or ``('submenu', 'action')``).
+        Passing a plain string is deprecated and will be removed in a future
+        version; the string is automatically wrapped in a one-element tuple.
+        """
+        if isinstance(name_or_path, str):
+            warnings.warn(
+                "contextMenu() received a plain string; in a future version the "
+                "path will always be a tuple. Update your sigContextMenu handler "
+                "to expect a tuple, e.g. change ``name == 'foo'`` to "
+                "``name == ('foo',)`` or ``name[-1] == 'foo'``.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            name_or_path = (name_or_path,)
+        self.sigContextMenu.emit(self, name_or_path)
 
     def setName(self, name):
         """Attempt to change the name of this parameter; return the actual name. 
@@ -297,6 +343,23 @@ class Parameter(QtCore.QObject):
         if cls is None:
             raise ValueError(f"Type name '{typ}' is not registered.")
         return self.__class__ is cls
+
+    def check_type(self):
+        """
+        Checks if the specified type in the parameter options is valid for the current class.
+        This method checks that:
+
+          - the type specified (self.opts['type']) is registered in the 'PARAM_TYPES' dictionary
+          - the class associated with the type in 'PARAM_TYPES' matches the current parameter class.
+
+        Returns
+        -------
+        bool: True if the type is valid, False otherwise.
+        """
+        if self.type() and not self.__class__ == PARAM_TYPES[self.type()]:
+            return False
+        return True
+
         
     def childPath(self, child):
         """
@@ -316,19 +379,14 @@ class Parameter(QtCore.QObject):
         Set the value of this Parameter; return the actual value that was set.
         (this may be different from the value that was requested)
         """
-        try:
-            if blockSignal is not None:
-                self.sigValueChanged.disconnect(blockSignal)
-            value = self._interpretValue(value)
-            if fn.eq(self.opts.get('value', None), value):
-                return value
-            self._modifiedSinceReset = True
-            self.opts['value'] = value
+        value = self._interpretValue(value)
+        if fn.eq(self.opts.get('value', None), value):
+            return value
+        self._modifiedSinceReset = True
+        self.opts['value'] = value
+        if not blockSignal:
             self.sigValueChanged.emit(self, value)  # value might change after signal is received by tree item
-        finally:
-            if blockSignal is not None:
-                self.sigValueChanged.connect(blockSignal)
-            
+
         return self.opts['value']
 
     def _interpretValue(self, v):
@@ -340,16 +398,9 @@ class Parameter(QtCore.QObject):
 
     def value(self):
         """
-        Return the value of this Parameter. Raises ValueError if no value has been set.
+        Return the value of this Parameter or None if no value has been set.
         """
-        if 'value' not in self.opts:
-            warnings.warn(
-                "Parameter has no value set. Pass an initial value or default, or use setValue() or setDefault(). "
-                "This will be an error after January 2025.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        return self.opts.get('value')
+        return self.opts.get('value', None)
 
     def getValues(self):
         """
@@ -419,7 +470,6 @@ class Parameter(QtCore.QObject):
             
             ptr = 0  ## pointer to first child that has not been restored yet
             foundChilds = set()
-            #print "==============", self.name()
             
             for ch in childState:
                 name = ch['name']
@@ -470,17 +520,13 @@ class Parameter(QtCore.QObject):
 
     def defaultValue(self):
         """Return the default value for this parameter. Raises ValueError if no default."""
-        if 'default' not in self.opts:
-            warnings.warn("Parameter has no default value. This will be a ValueError after January 2025.",
-                          DeprecationWarning,
-                          stacklevel=2)
         return self.opts.get('default')
         
     def setDefault(self, val, updatePristineValues=False):
         """Set the default value for this parameter. If updatePristineValues is True, then
         any values that haven't been modified since the last time they were reset to default
         will be updated to the new default value (default: False)."""
-        if self.opts.get('default', None) == val:
+        if self.opts.get('default') == val:
             return
         self.opts['default'] = val
         if 'value' not in self.opts or (updatePristineValues and not self.valueModifiedSinceResetToDefault()):
@@ -493,11 +539,15 @@ class Parameter(QtCore.QObject):
         """Set this parameter's value to the default. Raises ValueError if no default is set."""
         with self.treeChangeBlocker():
             self.setValue(self.defaultValue())
-            self._modifiedSinceReset = False
+            self._modifiedSinceReset = not self.valueIsDefault()
+            for item in list(self.items):
+                updateCtrlButton = getattr(item, 'updateCtrlButton', None)
+                if updateCtrlButton is not None:
+                    updateCtrlButton()
 
     def hasDefault(self):
         """Returns True if this parameter has a default value."""
-        return self.opts.get('default', None) is not None
+        return self.opts.get('default') is not None
         
     def valueIsDefault(self):
         """Returns True if this parameter's value is equal to the default value."""
@@ -575,30 +625,39 @@ class Parameter(QtCore.QObject):
         self.treeStateChanges.append((self, changeDesc, data))
         self.emitTreeChanges()
 
+    @QtCore.Slot(object, object)
     def _emitValueChanged(self, param, data):
         self.emitStateChanged("value", data)
 
+    @QtCore.Slot(object, object, object)
     def _emitChildAddedChanged(self, param, *data):
         self.emitStateChanged("childAdded", data)
 
+    @QtCore.Slot(object, object)
     def _emitChildRemovedChanged(self, param, data):
         self.emitStateChanged("childRemoved", data)
 
+    @QtCore.Slot(object, object)
     def _emitParentChanged(self, param, data):
         self.emitStateChanged("parent", data)
 
+    @QtCore.Slot(object, object)
     def _emitLimitsChanged(self, param, data):
         self.emitStateChanged("limits", data)
 
+    @QtCore.Slot(object, object)
     def _emitDefaultChanged(self, param, data):
         self.emitStateChanged("default", data)
 
+    @QtCore.Slot(object, object)
     def _emitNameChanged(self, param, data):
         self.emitStateChanged("name", data)
 
+    @QtCore.Slot(object, object)
     def _emitOptionsChanged(self, param, data):
         self.emitStateChanged("options", data)
 
+    @QtCore.Slot(object, object)
     def _emitContextMenuChanged(self, param, data):
         self.emitStateChanged("contextMenu", data)
 
@@ -844,11 +903,12 @@ class Parameter(QtCore.QObject):
         self.blockTreeChangeEmit += 1
 
     def unblockTreeChangeSignal(self):
-        """Unblocks enission of sigTreeStateChanged and flushes the changes out through a single signal."""
+        """Unblocks emission of sigTreeStateChanged and flushes the changes out through a single signal."""
         self.blockTreeChangeEmit -= 1
         self.emitTreeChanges()
         
         
+    @QtCore.Slot(object, object)
     def treeStateChanged(self, param, changes):
         """
         Called when the state of any sub-parameter has changed. 

@@ -8,7 +8,7 @@ __all__ = ['TableWidget']
 
 
 def _defersort(fn):
-    def defersort(self, *args, **kwds):
+    def defersort(self, *args, **kwargs):
         # may be called recursively; only the first call needs to block sorting
         setSorting = False
         if self._sorting is None:
@@ -16,7 +16,7 @@ def _defersort(fn):
             setSorting = True
             self.setSortingEnabled(False)
         try:
-            return fn(self, *args, **kwds)
+            return fn(self, *args, **kwargs)
         finally:
             if setSorting:
                 self.setSortingEnabled(self._sorting)
@@ -32,7 +32,7 @@ class TableWidget(QtWidgets.QTableWidget):
     information.
     """
     
-    def __init__(self, *args, **kwds):
+    def __init__(self, *args, **kwargs):
         """
         All positional arguments are passed to QTableWidget.__init__().
         
@@ -40,7 +40,7 @@ class TableWidget(QtWidgets.QTableWidget):
         **Keyword Arguments**
         editable              (bool) If True, cells in the table can be edited
                               by the user. Default is False.
-        sortable              (bool) If True, the table may be soted by
+        sortable              (bool) If True, the table may be sorted by
                               clicking on column headers. Note that this also
                               causes rows to appear initially shuffled until
                               a sort column is selected. Default is True.
@@ -57,13 +57,13 @@ class TableWidget(QtWidgets.QTableWidget):
         self.setSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Preferred)
         self.clear()
         
-        kwds.setdefault('sortable', True)
-        kwds.setdefault('editable', False)
-        self.setEditable(kwds.pop('editable'))
-        self.setSortingEnabled(kwds.pop('sortable'))
+        kwargs.setdefault('sortable', True)
+        kwargs.setdefault('editable', False)
+        self.setEditable(kwargs.pop('editable'))
+        self.setSortingEnabled(kwargs.pop('sortable'))
         
-        if len(kwds) > 0:
-            raise TypeError("Invalid keyword arguments '%s'" % list(kwds.keys()))
+        if len(kwargs) > 0:
+            raise TypeError("Invalid keyword arguments '%s'" % list(kwargs.keys()))
         
         self._sorting = None  # used when temporarily disabling sorting
         
@@ -323,18 +323,22 @@ class TableWidget(QtWidgets.QTableWidget):
             s += ('\t'.join(row) + '\n')
         return s
 
+    @QtCore.Slot()
     def copySel(self):
         """Copy selected data to clipboard."""
         QtWidgets.QApplication.clipboard().setText(self.serialize(useSelection=True))
 
+    @QtCore.Slot()
     def copyAll(self):
         """Copy all data to clipboard."""
         QtWidgets.QApplication.clipboard().setText(self.serialize(useSelection=False))
 
+    @QtCore.Slot()
     def saveSel(self):
         """Save selected data to file."""
         self.save(self.serialize(useSelection=True))
 
+    @QtCore.Slot()
     def saveAll(self):
         """Save all data to file."""
         self.save(self.serialize(useSelection=False))
@@ -361,6 +365,7 @@ class TableWidget(QtWidgets.QTableWidget):
         else:
             super().keyPressEvent(ev)
 
+    @QtCore.Slot(QtWidgets.QTableWidgetItem)
     def handleItemChanged(self, item):
         item.itemChanged()
 
@@ -466,6 +471,6 @@ class TableWidgetItem(QtWidgets.QTableWidgetItem):
         if self.sortMode == 'index' and hasattr(other, 'index'):
             return self.index < other.index
         if self.sortMode == 'value' and hasattr(other, 'value'):
-            return self.value < other.value
+            return bool(self.value < other.value)
         else:
             return self.text() < other.text()

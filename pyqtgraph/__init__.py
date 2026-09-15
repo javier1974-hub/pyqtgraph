@@ -3,9 +3,9 @@ PyQtGraph - Scientific Graphics and GUI Library for Python
 www.pyqtgraph.org
 """
 
-__version__ = '0.14.0dev0'
+__version__ = '0.15.0.dev0'
 
-### import all the goodies and add some helper functions for easy CLI use
+# pyright: reportMissingImports=false, reportUnusedImport=false
 
 import importlib
 import os
@@ -20,25 +20,9 @@ from .Qt import QtCore, QtGui, QtWidgets
 from .Qt import exec_ as exec
 from .Qt import mkQApp
 
-## not really safe--If we accidentally create another QApplication, the process hangs (and it is very difficult to trace the cause)
-#if QtWidgets.QApplication.instance() is None:
-    #app = QtWidgets.QApplication([])
-
-              ## (import here to avoid massive error dump later on if numpy is not available)
-
-
-## in general openGL is poorly supported with Qt+GraphicsView.
-## we only enable it where the performance benefit is critical.
-## Note this only applies to 2D graphics; 3D graphics always use OpenGL.
-if 'linux' in sys.platform:  ## linux has numerous bugs in opengl implementation
-    useOpenGL = False
-elif 'darwin' in sys.platform: ## openGL can have a major impact on mac, but also has serious bugs
-    useOpenGL = False
-else:
-    useOpenGL = False  ## on windows there's a more even performance / bugginess tradeoff.
 
 CONFIG_OPTIONS = {
-    'useOpenGL': useOpenGL, ## by default, this is platform-dependent (see widgets/GraphicsView). Set to True or False to explicitly enable/disable opengl.
+    'useOpenGL': False, ## Set to True or False to explicitly enable/disable opengl.
     'leftButtonPan': True,  ## if false, left button drags a rubber band for zooming in viewbox
     # foreground/background take any arguments to the 'mkColor' in /pyqtgraph/functions.py
     'foreground': 'd',  ## default foreground color for axes, labels, etc.
@@ -76,8 +60,8 @@ def setConfigOptions(**opts):
 
     Each keyword argument sets one global option.
     """
-    for k,v in opts.items():
-        setConfigOption(k, v)
+    for key, value in opts.items():
+        setConfigOption(key, value)
 
 def getConfigOption(opt):
     """Return the value of a single global configuration option.
@@ -149,6 +133,7 @@ from .functions import *
 from .graphicsItems.ArrowItem import *
 from .graphicsItems.AxisItem import *
 from .graphicsItems.BarGraphItem import *
+from .graphicsItems.BoxplotItem import *
 from .graphicsItems.ButtonItem import *
 from .graphicsItems.ColorBarItem import *
 from .graphicsItems.CurvePoint import *
@@ -312,7 +297,7 @@ plots = []
 images = []
 QAPP = None
 
-def plot(*args, **kargs):
+def plot(*args, **kwargs):
     """
     Create and return a :class:`PlotWidget <pyqtgraph.PlotWidget>`
     Accepts a *title* argument to set the title of the window.
@@ -322,11 +307,11 @@ def plot(*args, **kargs):
     pwArgList = ['title', 'labels', 'name', 'left', 'right', 'top', 'bottom', 'background']
     pwArgs = {}
     dataArgs = {}
-    for k in kargs:
+    for k in kwargs:
         if k in pwArgList:
-            pwArgs[k] = kargs[k]
+            pwArgs[k] = kwargs[k]
         else:
-            dataArgs[k] = kargs[k]
+            dataArgs[k] = kwargs[k]
     windowTitle = pwArgs.pop("title", "PlotWidget")
     w = PlotWidget(**pwArgs)
     w.setWindowTitle(windowTitle)
@@ -336,7 +321,7 @@ def plot(*args, **kargs):
     w.show()
     return w
 
-def image(*args, **kargs):
+def image(*args, **kwargs):
     """
     Create and return an :class:`ImageView <pyqtgraph.ImageView>`
     Will show 2D or 3D image data.
@@ -345,16 +330,16 @@ def image(*args, **kargs):
     """
     mkQApp()
     w = ImageView()
-    windowTitle = kargs.pop("title", "ImageView")
+    windowTitle = kwargs.pop("title", "ImageView")
     w.setWindowTitle(windowTitle)
-    w.setImage(*args, **kargs)
+    w.setImage(*args, **kwargs)
     images.append(w)
     w.show()
     return w
 show = image  ## for backward compatibility
 
 
-def dbg(*args, **kwds):
+def dbg(*args, **kwargs):
     """
     Create a console window and begin watching for exceptions.
 
@@ -362,7 +347,7 @@ def dbg(*args, **kwds):
     """
     mkQApp()
     from . import console
-    c = console.ConsoleWidget(*args, **kwds)
+    c = console.ConsoleWidget(*args, **kwargs)
     c.catchAllExceptions()
     c.show()
     global consoles
@@ -373,7 +358,7 @@ def dbg(*args, **kwds):
     return c
 
 
-def stack(*args, **kwds):
+def stack(*args, **kwargs):
     """
     Create a console window and show the current stack trace.
 
@@ -381,7 +366,7 @@ def stack(*args, **kwds):
     """
     mkQApp()
     from . import console
-    c = console.ConsoleWidget(*args, **kwds)
+    c = console.ConsoleWidget(*args, **kwargs)
     c.setStack()
     c.show()
     global consoles
@@ -392,7 +377,7 @@ def stack(*args, **kwds):
     return c
 
 
-def setPalette(app, style):
+def setPalette(app: QtWidgets.QApplication, style: QtGui.QPalette | str):
     if isinstance(style, str):
         style = style.lower()
         if style == 'qdarkstylelight':

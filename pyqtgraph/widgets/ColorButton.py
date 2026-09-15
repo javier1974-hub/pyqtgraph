@@ -22,7 +22,8 @@ class ColorButton(QtWidgets.QPushButton):
         QtWidgets.QPushButton.__init__(self, parent)
         self.padding = (padding, padding, -padding, -padding) if isinstance(padding, (int, float)) else padding
         self.setColor(color)
-        self.colorDialog = QtWidgets.QColorDialog()
+        self.colorDialog = QtWidgets.QColorDialog(self)
+        self.colorDialog.setAttribute(QtCore.Qt.WidgetAttribute.WA_WindowPropagation, True)
         self.colorDialog.setOption(QtWidgets.QColorDialog.ColorDialogOption.ShowAlphaChannel, True)
         self.colorDialog.setOption(QtWidgets.QColorDialog.ColorDialogOption.DontUseNativeDialog, True)
         self.colorDialog.currentColorChanged.connect(self.dialogColorChanged)
@@ -56,18 +57,23 @@ class ColorButton(QtWidgets.QPushButton):
         else:
             self.sigColorChanging.emit(self)
         
+    @QtCore.Slot()
     def selectColor(self):
         self.origColor = self.color()
         self.colorDialog.setCurrentColor(self.color())
         self.colorDialog.open()
         
+    @QtCore.Slot(QtGui.QColor)
     def dialogColorChanged(self, color):
         if color.isValid():
             self.setColor(color, finished=False)
             
+    @QtCore.Slot()
+    @QtCore.Slot(QtGui.QColor)
     def colorRejected(self):
         self.setColor(self.origColor, finished=False)
     
+    @QtCore.Slot(QtGui.QColor)
     def colorSelected(self, color):
         self.setColor(self._color, finished=True)
     

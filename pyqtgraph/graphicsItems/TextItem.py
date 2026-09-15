@@ -162,7 +162,7 @@ class TextItem(GraphicsObject):
 
     def dataBounds(self, ax, frac=1.0, orthoRange=None):
         """
-        Returns only the anchor point for when calulating view ranges.
+        Returns only the anchor point for when calculating view ranges.
         
         Sacrifices some visual polish for fixing issue #2642.
         """
@@ -206,6 +206,7 @@ class TextItem(GraphicsObject):
         if v:
             self.updateTransform()
     
+    @QtCore.Slot()
     def updateTransform(self, force=False):
         if not self.isVisible():
             return

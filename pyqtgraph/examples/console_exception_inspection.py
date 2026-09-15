@@ -61,7 +61,7 @@ def raiseCaughtException():
 
 
 def captureStack():
-    """Inspect the curent call stack
+    """Inspect the current call stack
     """
     x = "inside captureStack()"
     global console
@@ -73,7 +73,7 @@ def captureStack():
 threadRunQueue = queue.Queue()
 def threadRunner():
     global threadRunQueue
-    # This is necessary to allow installing trace functions in the thread later on
+    # This is necessary in some older versions of python to allow installing trace functions in the thread later on
     sys.settrace(lambda *args: None)
     while True:
         func, args = threadRunQueue.get()

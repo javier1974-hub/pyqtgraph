@@ -1,10 +1,18 @@
 """
 Simple examples demonstrating the use of GLMeshItem.
 """
-
+import sys
 
 import pyqtgraph as pg
+from pyqtgraph.Qt import QtGui
 import pyqtgraph.opengl as gl
+
+if 'darwin' in sys.platform:
+    fmt = QtGui.QSurfaceFormat()
+    fmt.setRenderableType(fmt.RenderableType.OpenGL)
+    fmt.setProfile(fmt.OpenGLContextProfile.CoreProfile)
+    fmt.setVersion(4, 1)
+    QtGui.QSurfaceFormat.setDefaultFormat(fmt)
 
 app = pg.mkQApp("GLMeshItem Example")
 w = gl.GLViewWidget()
@@ -59,7 +67,7 @@ verts[:,2] = np.vstack([4*np.cos(theta-0.2), 4*np.sin(theta-0.2), [1]*36]).T
 ## Colors are specified per-vertex
 colors = np.random.random(size=(verts.shape[0], 3, 4))
 m2 = gl.GLMeshItem(vertexes=verts, vertexColors=colors, smooth=False, shader='balloon', 
-                   drawEdges=True, edgeColor=(1, 1, 0, 1))
+                   drawEdges=True, edgeColor=(1, 1, 0, 1), polygonOffset=True)
 m2.translate(-5, 5, 0)
 w.addItem(m2)
 
@@ -76,7 +84,7 @@ colors = np.ones((md.faceCount(), 4), dtype=np.float32)
 colors[::2,0] = 0
 colors[:,1] = np.linspace(0, 1, colors.shape[0])
 md.setFaceColors(colors)
-m3 = gl.GLMeshItem(meshdata=md, smooth=False)#, shader='balloon')
+m3 = gl.GLMeshItem(meshdata=md, smooth=False)
 
 m3.translate(5, -5, 0)
 w.addItem(m3)
@@ -98,12 +106,12 @@ colors = np.ones((len(md.vertexes()), 4), dtype=np.float32)
 colors[::2,0] = 0
 colors[:,1] = np.linspace(0, 1, colors.shape[0])
 md.setVertexColors(colors)
-m5 = gl.GLMeshItem(meshdata=md, smooth=True, drawEdges=True, edgeColor=(1,0,0,1), shader='balloon')
+m5 = gl.GLMeshItem(meshdata=md, smooth=True, drawEdges=True, edgeColor=(1,0,0,1), polygonOffset=True)
 colors = np.ones((len(md2.vertexes()), 4), dtype=np.float32)
 colors[::2,0] = 0
 colors[:,1] = np.linspace(0, 1, colors.shape[0])
 md2.setVertexColors(colors)
-m6 = gl.GLMeshItem(meshdata=md2, smooth=True, drawEdges=False, shader='balloon')
+m6 = gl.GLMeshItem(meshdata=md2, smooth=True, drawEdges=False)
 m6.translate(0,0,7.5)
 
 m6.rotate(0., 0, 1, 1)

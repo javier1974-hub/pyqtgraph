@@ -5,14 +5,14 @@ from ... import functions as fn
 from ...Qt import QtCore, QtWidgets
 from ...SignalProxy import SignalProxy
 from ...widgets.PenPreviewLabel import PenPreviewLabel
-from . import GroupParameterItem, WidgetParameterItem
+from . import GroupParameterItem
 from .basetypes import GroupParameter, Parameter, ParameterItem
 from .qtenum import QtEnumParameter
 
 
 class PenParameterItem(GroupParameterItem):
     def __init__(self, param, depth):
-        self.defaultBtn = self.makeDefaultButton()
+        self.ctrlBtn = self.makeCtrlButton()
         super().__init__(param, depth)
         self.itemWidget = QtWidgets.QWidget()
         layout = QtWidgets.QHBoxLayout()
@@ -20,13 +20,13 @@ class PenParameterItem(GroupParameterItem):
         layout.setSpacing(2)
 
         self.penLabel = PenPreviewLabel(param)
-        for child in self.penLabel, self.defaultBtn:
+        for child in self.penLabel, self.ctrlBtn:
             layout.addWidget(child)
         self.itemWidget.setLayout(layout)
 
     def optsChanged(self, param, opts):
         if "enabled" in opts or "readonly" in opts:
-            self.updateDefaultBtn()
+            self.updateCtrlButton()
 
     def treeWidgetChanged(self):
         ParameterItem.treeWidgetChanged(self)
@@ -35,18 +35,8 @@ class PenParameterItem(GroupParameterItem):
             return
         tw.setItemWidget(self, 1, self.itemWidget)
 
-    defaultClicked = WidgetParameterItem.defaultClicked
-    makeDefaultButton = WidgetParameterItem.makeDefaultButton
-
     def valueChanged(self, param, val):
-        self.updateDefaultBtn()
-
-    def updateDefaultBtn(self):
-        self.defaultBtn.setEnabled(
-            not self.param.valueIsDefault()
-            and self.param.opts["enabled"]
-            and self.param.writable()
-        )
+        self.updateCtrlButton()
 
 
 def cap_first(s: str):
@@ -86,6 +76,7 @@ class PenParameter(GroupParameter):
             threadSafe=False,
         )
 
+    @QtCore.Slot(object)
     def _childrenFinishedChanging(self, paramAndValue):
         self.setValue(self.pen)
 
@@ -193,15 +184,7 @@ class PenParameter(GroupParameter):
                 if p.type() != 'color':
                     p.sigValueChanging.connect(newSetter)
                 # Force children to emulate self's value instead of being part of a tree like normal
-                try:
-                    p.sigValueChanged.disconnect(p._emitValueChanged)
-                except RuntimeError:
-                    # workaround https://bugreports.qt.io/projects/PYSIDE/issues/PYSIDE-2487
-                    # that affects PySide 6.5.3
-                    # Since the child param was freshly created by us, there can only have been one slot
-                    # connected. So we can just disconnect all the slots without specifying which one.
-                    assert p.receivers(QtCore.SIGNAL("sigValueChanged(PyObject,PyObject)")) == 1
-                    p.sigValueChanged.disconnect()
+                p.sigValueChanged.disconnect(p._emitValueChanged)
                 # Some widgets (e.g. checkbox, combobox) don't emit 'changing' signals, so tie to 'changed' as well
                 p.sigValueChanged.connect(newSetter)
 

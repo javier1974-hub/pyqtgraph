@@ -65,6 +65,7 @@ examples_ = OrderedDict([
         ('Custom Graphics', 'customGraphicsItem.py'),
         ('Labeled Graph', 'CustomGraphItem.py'),
         ('PColorMeshItem', 'PColorMeshItem.py'),
+        ('BoxplotItem', 'BoxplotItem.py'),
     ])),
     ('Benchmarks', OrderedDict([
         ('Video speed test', 'VideoSpeedTest.py'),
@@ -84,7 +85,8 @@ examples_ = OrderedDict([
         ('Text', 'GLTextItem.py'),
         ('BarGraph', 'GLBarGraphItem.py'),
         ('Painter', 'GLPainterItem.py'),
-        ('Gradient Legend', 'GLGradientLegendItem.py')
+        ('Gradient Legend', 'GLGradientLegendItem.py'),
+        ('Grid Axis', 'GLGridAxisItem.py'),
     ])),
     ('Widgets', OrderedDict([
         ('PlotWidget', 'PlotWidget.py'),

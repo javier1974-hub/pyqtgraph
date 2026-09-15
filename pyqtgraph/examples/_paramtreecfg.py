@@ -99,8 +99,19 @@ cfg = {
         }
     },
 
+    'radio': {
+    },
+
     'pen': {
         'Pen Information': {
+            'type': 'str',
+            'value': 'Click the button to see options',
+            'readonly': True,
+        },
+    },
+
+    'brush': {
+        'Brush Information': {
             'type': 'str',
             'value': 'Click the button to see options',
             'readonly': True,

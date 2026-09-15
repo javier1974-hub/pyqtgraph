@@ -1,9 +1,11 @@
+
+from ..Parameter import PARAM_TYPES, registerParameterItemType
 from ... import functions as fn
-from ...Qt import QtWidgets
+from ...Qt import QtCore, QtWidgets
 from ...SignalProxy import SignalProxy
 from ..ParameterItem import ParameterItem
 from . import BoolParameterItem, SimpleParameter
-from .basetypes import Emitter, GroupParameter, GroupParameterItem, WidgetParameterItem
+from .basetypes import Emitter, GroupParameter, GroupParameterItem
 from .list import ListParameter
 
 
@@ -31,7 +33,7 @@ class ChecklistParameterItem(GroupParameterItem):
             self.metaBtnLayout.addWidget(btn)
             btn.clicked.connect(getattr(self, f'{title.lower()}AllClicked'))
 
-        self.metaBtns['default'] = self.makeDefaultButton()
+        self.metaBtns['default'] = self.makeCtrlButton()
         self.metaBtnLayout.addWidget(self.metaBtns['default'])
 
     def treeWidgetChanged(self):
@@ -78,25 +80,15 @@ class ChecklistParameterItem(GroupParameterItem):
         self.btnGrp.setExclusive(exclusive)
         # "Limits" will force update anyway, no need to duplicate if it's present
         if 'limits' not in opts and ('enabled' in opts or 'readonly' in opts):
-            self.updateDefaultBtn()
+            self.updateCtrlButton()
 
     def expandedChangedEvent(self, expanded):
         for btn in self.metaBtns.values():
             btn.setVisible(expanded)
 
     def valueChanged(self, param, val):
-        self.updateDefaultBtn()
+        self.updateCtrlButton()
 
-    def updateDefaultBtn(self):
-        self.metaBtns["default"].setEnabled(
-            not self.param.valueIsDefault()
-            and self.param.opts["enabled"]
-            and self.param.writable()
-        )
-        return
-
-    makeDefaultButton = WidgetParameterItem.makeDefaultButton
-    defaultClicked = WidgetParameterItem.defaultClicked
 
 class RadioParameterItem(BoolParameterItem):
     """
@@ -128,15 +120,10 @@ class RadioParameterItem(BoolParameterItem):
         self.emitter.sigChanged.emit(self, val)
 
 
-# Proxy around radio/bool type so the correct item class gets instantiated
-class BoolOrRadioParameter(SimpleParameter):
+class RadioParameter(SimpleParameter):
+    itemClass = RadioParameterItem
 
-    @property
-    def itemClass(self):
-        if self.opts.get('type') == 'bool':
-            return BoolParameterItem
-        else:
-            return RadioParameterItem
+registerParameterItemType('radio', RadioParameterItem, RadioParameter)
 
 
 class ChecklistParameter(GroupParameter):
@@ -193,6 +180,7 @@ class ChecklistParameter(GroupParameter):
         else:
             return vals
 
+    @QtCore.Slot(object, object)
     def _onChildChanging(self, child, value):
         # When exclusive, ensure only this value is True
         if self.opts['exclusive'] and value:
@@ -201,6 +189,7 @@ class ChecklistParameter(GroupParameter):
             value = self.childrenValue()
         self.sigValueChanging.emit(self, value)
 
+    @QtCore.Slot(object, object)
     def updateLimits(self, _param, limits):
         oldOpts = self.names
         val = self.opts.get('value', None)
@@ -215,7 +204,7 @@ class ChecklistParameter(GroupParameter):
         for chName in self.forward:
             # Recycle old values if they match the new limits
             newVal = bool(oldOpts.get(chName, False))
-            child = BoolOrRadioParameter(type=typ, name=chName, value=newVal, default=None)
+            child = PARAM_TYPES[typ](type=typ, name=chName, value=newVal, default=None)
             self.addChild(child)
             # Prevent child from broadcasting tree state changes, since this is handled by self
             child.blockTreeChangeSignal()
@@ -225,11 +214,13 @@ class ChecklistParameter(GroupParameter):
         self.unblockTreeChangeSignal()
         self.setValue(val)
 
+    @QtCore.Slot(object)
     def _finishChildChanges(self, paramAndValue):
         param, value = paramAndValue
         # Interpret value, fire sigValueChanged
         return self.setValue(value)
 
+    @QtCore.Slot(object, object)
     def optsChanged(self, param, opts):
         if 'exclusive' in opts:
             self.updateLimits(None, self.opts.get('limits', []))
@@ -270,7 +261,7 @@ class ChecklistParameter(GroupParameter):
         # Could be replaced by "value in self.reverse[0]" and "reverse[0].index",
         # but this allows for using pg.eq to cover more diverse value options
         for val in values:
-            for limitName, limitValue in zip(*self.reverse):
+            for limitValue, limitName in zip(*self.reverse):
                 if fn.eq(limitValue, val):
                     allowedNames.append(limitName)
                     allowedValues.append(val)

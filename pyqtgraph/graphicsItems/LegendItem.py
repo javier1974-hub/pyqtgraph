@@ -1,7 +1,7 @@
 import math
 
 from .. import functions as fn
-from ..icons import invisibleEye
+from ..icons import getGraphPixmap
 from ..Point import Point
 from ..Qt import QtCore, QtGui, QtWidgets
 from .BarGraphItem import BarGraphItem
@@ -32,7 +32,7 @@ class LegendItem(GraphicsWidgetAnchor, GraphicsWidget):
     sigDoubleClicked = QtCore.Signal(object, object)
     sigSampleClicked = QtCore.Signal(object)
 
-    def __init__(self, size=None, offset=None, horSpacing=25, verSpacing=0,
+    def __init__(self, size=None, offset=None, horSpacing=5, verSpacing=0,
                  pen=None, brush=None, labelTextColor=None, frame=True,
                  labelTextSize='9pt', colCount=1, sampleType=None, **kwargs):
         """
@@ -67,12 +67,11 @@ class LegendItem(GraphicsWidgetAnchor, GraphicsWidget):
         """
         GraphicsWidget.__init__(self)
         GraphicsWidgetAnchor.__init__(self)
-        self.setFlag(self.GraphicsItemFlag.ItemIgnoresTransformations)
-        self.layout = QtWidgets.QGraphicsGridLayout()
-        self.layout.setVerticalSpacing(verSpacing)
-        self.layout.setHorizontalSpacing(horSpacing)
+        self.layout_ = QtWidgets.QGraphicsGridLayout()
+        self.layout_.setVerticalSpacing(verSpacing)
+        self.layout_.setHorizontalSpacing(horSpacing)
 
-        self.setLayout(self.layout)
+        self.setLayout(self.layout_)
         self.items = []
         self.size = size
         self.offset = offset
@@ -135,12 +134,12 @@ class LegendItem(GraphicsWidgetAnchor, GraphicsWidget):
         """Get the QPen used to draw the border around the legend."""
         return self.opts['pen']
 
-    def setPen(self, *args, **kargs):
+    def setPen(self, *args, **kwargs):
         """Set the pen used to draw a border around the legend.
 
         Accepts the same arguments as :func:`~pyqtgraph.mkPen`.
         """
-        pen = fn.mkPen(*args, **kargs)
+        pen = fn.mkPen(*args, **kwargs)
         self.opts['pen'] = pen
 
         self.update()
@@ -149,12 +148,12 @@ class LegendItem(GraphicsWidgetAnchor, GraphicsWidget):
         """Get the QBrush used to draw the legend background."""
         return self.opts['brush']
 
-    def setBrush(self, *args, **kargs):
+    def setBrush(self, *args, **kwargs):
         """Set the brush used to draw the legend background.
 
         Accepts the same arguments as :func:`~pyqtgraph.mkBrush`.
         """
-        brush = fn.mkBrush(*args, **kargs)
+        brush = fn.mkBrush(*args, **kwargs)
         if self.opts['brush'] == brush:
             return
         self.opts['brush'] = brush
@@ -165,12 +164,12 @@ class LegendItem(GraphicsWidgetAnchor, GraphicsWidget):
         """Get the QColor used for the item labels."""
         return self.opts['labelTextColor']
 
-    def setLabelTextColor(self, *args, **kargs):
+    def setLabelTextColor(self, *args, **kwargs):
         """Set the color of the item labels.
 
         Accepts the same arguments as :func:`~pyqtgraph.mkColor`.
         """
-        self.opts['labelTextColor'] = fn.mkColor(*args, **kargs)
+        self.opts['labelTextColor'] = fn.mkColor(*args, **kwargs)
         for sample, label in self.items:
             label.setAttr('color', self.opts['labelTextColor'])
 
@@ -229,8 +228,8 @@ class LegendItem(GraphicsWidgetAnchor, GraphicsWidget):
         self.updateSize()
 
     def _addItemToLayout(self, sample, label):
-        col = self.layout.columnCount()
-        row = self.layout.rowCount()
+        col = self.layout_.columnCount()
+        row = self.layout_.rowCount()
         if row:
             row -= 1
         nCol = self.columnCount * 2
@@ -238,15 +237,15 @@ class LegendItem(GraphicsWidgetAnchor, GraphicsWidget):
         if col == nCol:
             for col in range(0, nCol, 2):
                 # FIND RIGHT COLUMN
-                if not self.layout.itemAt(row, col):
+                if not self.layout_.itemAt(row, col):
                     break
             else:
                 if col + 2 == nCol:
                     # MAKE NEW ROW
                     col = 0
                     row += 1
-        self.layout.addItem(sample, row, col)
-        self.layout.addItem(label, row, col + 1)
+        self.layout_.addItem(sample, row, col, alignment=QtCore.Qt.AlignmentFlag.AlignVCenter)
+        self.layout_.addItem(label, row, col + 1)
         # Keep rowCount in sync with the number of rows if items are added
         self.rowCount = max(self.rowCount, row + 1)
 
@@ -257,8 +256,8 @@ class LegendItem(GraphicsWidgetAnchor, GraphicsWidget):
             self.columnCount = columnCount
 
             self.rowCount = math.ceil(len(self.items) / columnCount)
-            for i in range(self.layout.count() - 1, -1, -1):
-                self.layout.removeAt(i)  # clear layout
+            for i in range(self.layout_.count() - 1, -1, -1):
+                self.layout_.removeAt(i)  # clear layout
             for sample, label in self.items:
                 self._addItemToLayout(sample, label)
             self.updateSize()
@@ -276,7 +275,7 @@ class LegendItem(GraphicsWidgetAnchor, GraphicsWidget):
 
     def _removeItemFromLayout(self, *args):
         for item in args:
-            self.layout.removeItem(item)
+            self.layout_.removeItem(item)
             item.close()
             # Normally, the item is automatically removed from
             # its scene when it gets destroyed.
@@ -314,11 +313,11 @@ class LegendItem(GraphicsWidgetAnchor, GraphicsWidget):
             return
         height = 0
         width = 0
-        for row in range(self.layout.rowCount()):
+        for row in range(self.layout_.rowCount()):
             row_height = 0
             col_width = 0
-            for col in range(self.layout.columnCount()):
-                item = self.layout.itemAt(row, col)
+            for col in range(self.layout_.columnCount()):
+                item = self.layout_.itemAt(row, col)
                 if item:
                     col_width += item.width() + 3
                     row_height = max(row_height, item.height())
@@ -359,6 +358,8 @@ class ItemSample(GraphicsWidget):
     def __init__(self, item):
         GraphicsWidget.__init__(self)
         self.item = item
+        self.setFixedWidth(20)
+        self.setFixedHeight(20)
 
     def boundingRect(self):
         return QtCore.QRectF(0, 0, 20, 20)
@@ -370,8 +371,7 @@ class ItemSample(GraphicsWidget):
 
         visible = self.item.isVisible()
         if not visible:
-            icon = invisibleEye.qicon
-            p.drawPixmap(QtCore.QPoint(1, 1), icon.pixmap(18, 18))
+            p.drawPixmap(QtCore.QPoint(1, 1), getGraphPixmap('invisibleEye', size=(18, 18)))
             return
 
         if not isinstance(self.item, ScatterPlotItem):

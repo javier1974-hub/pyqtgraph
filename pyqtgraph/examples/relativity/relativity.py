@@ -51,17 +51,15 @@ class RelativityGUI(QtWidgets.QWidget):
         if os.path.exists(presetDir):
             presets = [os.path.splitext(p)[0] for p in os.listdir(presetDir)]
             self.params.param('Load Preset..').setLimits(['']+presets)
-        
-        
-        
-        
+
     def setupGUI(self):
-        self.layout = QtWidgets.QVBoxLayout()
-        self.layout.setContentsMargins(0,0,0,0)
-        self.setLayout(self.layout)
+        self.layout_ = QtWidgets.QVBoxLayout()
+        self.layout_.setContentsMargins(0,0,0,0)
+        
         self.splitter = QtWidgets.QSplitter()
         self.splitter.setOrientation(QtCore.Qt.Orientation.Horizontal)
-        self.layout.addWidget(self.splitter)
+        self.layout_.addWidget(self.splitter)
+        self.setLayout(self.layout_)
         
         self.tree = ParameterTree(showHeader=False)
         self.splitter.addWidget(self.tree)
@@ -203,7 +201,7 @@ class ObjectGroupParam(pTypes.GroupParameter):
             self.addChild(GridParam())
 
 class ClockParam(pTypes.GroupParameter):
-    def __init__(self, **kwds):
+    def __init__(self, **kwargs):
         defs = dict(name="Clock", autoIncrementName=True, renamable=True, removable=True, children=[
             dict(name='Initial Position', type='float', value=0.0, step=0.1),
             #dict(name='V0', type='float', value=0.0, step=0.1),
@@ -214,9 +212,9 @@ class ClockParam(pTypes.GroupParameter):
             dict(name='Size', type='float', value=0.5),
             dict(name='Vertical Position', type='float', value=0.0, step=0.1),
             ])
-        #defs.update(kwds)
+        #defs.update(kwargs)
         pTypes.GroupParameter.__init__(self, **defs)
-        self.restoreState(kwds, removeChildren=False)
+        self.restoreState(kwargs, removeChildren=False)
             
     def buildClocks(self):
         x0 = self['Initial Position']
@@ -234,15 +232,15 @@ class ClockParam(pTypes.GroupParameter):
 pTypes.registerParameterType('Clock', ClockParam)
     
 class GridParam(pTypes.GroupParameter):
-    def __init__(self, **kwds):
+    def __init__(self, **kwargs):
         defs = dict(name="Grid", autoIncrementName=True, renamable=True, removable=True, children=[
             dict(name='Number of Clocks', type='int', value=5, limits=[1, None]),
             dict(name='Spacing', type='float', value=1.0, step=0.1),
             ClockParam(name='ClockTemplate'),
             ])
-        #defs.update(kwds)
+        #defs.update(kwargs)
         pTypes.GroupParameter.__init__(self, **defs)
-        self.restoreState(kwds, removeChildren=False)
+        self.restoreState(kwargs, removeChildren=False)
             
     def buildClocks(self):
         clocks = {}
@@ -260,10 +258,10 @@ class GridParam(pTypes.GroupParameter):
 pTypes.registerParameterType('Grid', GridParam)
 
 class AccelerationGroup(pTypes.GroupParameter):
-    def __init__(self, **kwds):
+    def __init__(self, **kwargs):
         defs = dict(name="Acceleration", addText="Add Command..")
         pTypes.GroupParameter.__init__(self, **defs)
-        self.restoreState(kwds, removeChildren=False)
+        self.restoreState(kwargs, removeChildren=False)
         
     def addNew(self):
         nextTime = 0.0

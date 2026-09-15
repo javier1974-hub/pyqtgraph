@@ -136,7 +136,7 @@ class ParameterTree(TreeWidget):
         app = mkQApp()
         # Docs say to use the following methods
         # QApplication.instance().styleHints().colorScheme() == QtCore.Qt.ColorScheme.Dark
-        # but on macOS with Qt 6.7 this is giving opposite results (says color sceme is light
+        # but on macOS with Qt 6.7 this is giving opposite results (says color scene is light
         # when it is dark and vice versa). This was not observed in the ExampleApp, but was
         # observed with the ParameterTree. We fall back to the "legacy" method of determining
         # if the color theme is dark or light from QPalette
@@ -182,14 +182,19 @@ class ParameterTree(TreeWidget):
             self._updatePalette(self.palette())
         return super().event(event)
 
+    @QtCore.Slot(QtWidgets.QTreeWidgetItem, int)
     def itemChangedEvent(self, item, col):
         if hasattr(item, 'columnChangedEvent'):
             item.columnChangedEvent(col)
     
+    @QtCore.Slot(QtWidgets.QTreeWidgetItem)
+    @QtCore.Slot(QtWidgets.QTreeWidgetItem, int)
     def itemExpandedEvent(self, item):
         if hasattr(item, 'expandedChangedEvent'):
             item.expandedChangedEvent(True)
     
+    @QtCore.Slot(QtWidgets.QTreeWidgetItem)
+    @QtCore.Slot(QtWidgets.QTreeWidgetItem, int)
     def itemCollapsedEvent(self, item):
         if hasattr(item, 'expandedChangedEvent'):
             item.expandedChangedEvent(False)

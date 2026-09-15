@@ -1,3 +1,5 @@
+from math import isfinite
+
 #import PySide
 import pytest
 
@@ -19,7 +21,9 @@ def init_viewbox():
     global win, vb
     
     win = pg.GraphicsLayoutWidget()
-    win.ci.layout.setContentsMargins(0,0,0,0)
+
+    # TODO: use .layout() method once .laytout is removed
+    win.ci.layout_.setContentsMargins(0,0,0,0)
     win.resize(200, 200)
     win.show()
     vb = win.addViewBox()
@@ -81,6 +85,33 @@ def test_ViewBox_setMenuEnabled():
     assert vb.menu is not None
     vb.setMenuEnabled(False)
     assert vb.menu is None
+
+
+@pytest.mark.parametrize("data", (
+    [value * 1e-310 for value in range(1, 11)],
+    [-1e-310, 0, 1e-310],
+))
+@pytest.mark.parametrize("axis", ("x", "y"))
+def test_ViewBox_subnormal_range_transform_is_finite(data, axis):
+    plot = pg.PlotWidget()
+    plot.resize(640, 480)
+    indices = list(range(len(data)))
+    if axis == "x":
+        plot.plot(x=data, y=indices)
+    else:
+        plot.plot(x=indices, y=data)
+    plot.show()
+    app.processEvents()
+
+    transform = plot.getViewBox().childGroup.transform()
+    values = (
+        transform.m11(), transform.m12(), transform.m13(),
+        transform.m21(), transform.m22(), transform.m23(),
+        transform.m31(), transform.m32(), transform.m33(),
+    )
+
+    assert all(isfinite(value) for value in values)
+    plot.close()
 
 
 

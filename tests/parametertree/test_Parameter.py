@@ -23,7 +23,6 @@ def test_parameter_hasdefault():
 
     # default unspecified
     p = Parameter.create(**opts)
-    # TODO after January 2025, this next line needs to reverse its assertion
     assert p.hasDefault()
 
     # default specified
@@ -39,6 +38,28 @@ def test_parameter_hasdefault():
     assert p.defaultValue() == 2
 
 
+def test_parameter_getValues():
+    params = [
+        {"name": "a", "type": "int", "value": 1},
+        {"name": "b", "type": "float"},
+        {"name": "c", "type": "group", 'children': [
+            {"name": "d", "type": "bool"},
+            {"name": "e", "type": "int", "value": 2},
+        ]},
+    ]
+    p = Parameter.create(name="param", type='group',
+                         children=params)
+    p.getValues()
+
+
+def test_parameter_no_value():
+    p = Parameter.create(name="param", type='group',)
+    assert p.value() is None
+
+    p = Parameter.create(name='param', type='float',)
+    assert p.value() is None
+
+
 def test_parameter_defaults_and_pristineness():
     # init with identical value and default
     p = Parameter.create(name="param", type='int', value=1, default=1)
@@ -49,9 +70,6 @@ def test_parameter_defaults_and_pristineness():
     # init with value only
     p = Parameter.create(name="param", type='int', value=1)
     assert p.valueModifiedSinceResetToDefault() is True
-    # TODO after January 2025, uncomment the following lines
-    # with pytest.raises(ValueError):
-    #     p.setToDefault()
     # init with default only
     p = Parameter.create(name="param", type='int', default=1)
     assert p.valueModifiedSinceResetToDefault() is False
@@ -93,16 +111,15 @@ def test_parameter_defaults_and_pristineness():
     p.setDefault(7, updatePristineValues=True)
     assert p.value() == 7
 
+    # if the value is coerced away from the raw default, the parameter remains modified
+    p = Parameter.create(name="param", type='int', value=1, default=2.5)
+    p.setToDefault()
+    assert p.value() == 2
+    assert p.valueModifiedSinceResetToDefault() is True
+
     # init with neither value nor default
     p = Parameter.create(name="param", type='int')
     assert p.valueModifiedSinceResetToDefault() is False
-    # TODO after January 2025, uncomment the following lines
-    # with pytest.raises(ValueError):
-    #     p.value()
-    # with pytest.raises(ValueError):
-    #     p.defaultValue()
-    # with pytest.raises(ValueError):
-    #     p.setToDefault()
     p.setDefault(8)
     assert p.valueModifiedSinceResetToDefault() is False
     assert p.value() == 8

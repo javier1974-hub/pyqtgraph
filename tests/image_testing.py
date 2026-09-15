@@ -304,18 +304,18 @@ class ImageTester(QtWidgets.QWidget):
     def __init__(self):
         self.lastKey = None
         
-        QtWidgets.QWidget.__init__(self)
+        super().__init__()
         self.resize(1200, 800)
         self.setWindowTitle("ImageTester")
         
-        self.layout = QtWidgets.QGridLayout()
-        self.setLayout(self.layout)
+        self.layout_ = QtWidgets.QGridLayout()
+        self.setLayout(self.layout_)
         
         self.view = GraphicsLayoutWidget()
-        self.layout.addWidget(self.view, 0, 0, 1, 2)
+        self.layout_.addWidget(self.view, 0, 0, 1, 2)
 
         self.label = QtWidgets.QLabel()
-        self.layout.addWidget(self.label, 1, 0, 1, 2)
+        self.layout_.addWidget(self.label, 1, 0, 1, 2)
         self.label.setWordWrap(True)
         font = QtGui.QFont("monospace", 14)
         font.setStyleHint(QtGui.QFont.StyleHint.Monospace)
@@ -332,7 +332,7 @@ class ImageTester(QtWidgets.QWidget):
         self.passBtn.clicked.connect(self.passTest)
         self.failBtn.clicked.connect(self.failTest)
         self.saveBtn.clicked.connect(self.saveImage)
-        self.layout.addWidget(self.btnBox, 2, 0, 1, -1)
+        self.layout_.addWidget(self.btnBox, 2, 0, 1, -1)
 
         self.plots = (
             self.view.addPlot(title="Result", row=0, col=0),
@@ -475,10 +475,10 @@ def indent(s, pfx):
 class TransposedImageItem(ImageItem):
     # used for testing image axis order; we can test row-major and col-major using
     # the same test images
-    def __init__(self, *args, **kwds):
-        self.__transpose = kwds.pop('transpose', False)
-        ImageItem.__init__(self, *args, **kwds)
-    def setImage(self, image=None, **kwds):
+    def __init__(self, *args, **kwargs):
+        self.__transpose = kwargs.pop('transpose', False)
+        ImageItem.__init__(self, *args, **kwargs)
+    def setImage(self, image=None, **kwargs):
         if image is not None and self.__transpose is True:
             image = np.swapaxes(image, 0, 1)
-        return ImageItem.setImage(self, image, **kwds)
+        return ImageItem.setImage(self, image, **kwargs)

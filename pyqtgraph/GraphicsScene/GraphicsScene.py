@@ -109,6 +109,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
         self.prepareForPaint()
         return QtWidgets.QGraphicsScene.render(self, *args)
 
+    @QtCore.Slot()
     def prepareForPaint(self):
         """Called before every render. This method will inform items that the scene is about to
         be rendered by emitting sigPrepareForPaint.
@@ -148,7 +149,11 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
             ## set focus on the topmost focusable item under this click
             items = self.items(ev.scenePos())
             for i in items:
-                if i.isEnabled() and i.isVisible() and (i.flags() & i.GraphicsItemFlag.ItemIsFocusable):
+                if (
+                    i.isEnabled() and 
+                    i.isVisible() and 
+                    (i.flags() & QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsFocusable)
+                ):
                     i.setFocus(QtCore.Qt.FocusReason.MouseFocusReason)
                     break
 
@@ -178,8 +183,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
             # Next Deliver our own Hover Events
             self.sendHoverEvents(ev)
             if ev.buttons():
-                # button is pressed' send mouseMoveEvents and mouseDragEvents
-                super().mouseMoveEvent(ev)
+                # button is pressed' send mouseDragEvents
                 if self.mouseGrabberItem() is None:
                     now = perf_counter()
                     init = False
@@ -335,7 +339,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
                         if event.isAccepted():
                             #print "   --> accepted"
                             self.dragItem = item
-                            if item.flags() & item.GraphicsItemFlag.ItemIsFocusable:
+                            if item.flags() & QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsFocusable:
                                 item.setFocus(QtCore.Qt.FocusReason.MouseFocusReason)
                             break
         elif self.dragItem is not None:
@@ -368,9 +372,15 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
                     acceptedItem.mouseClickEvent(ev)
                 except:
                     debug.printExc("Error sending click event:")
-            else:
+            if not ev.isAccepted() or acceptedItem is None:
                 for item in self.itemsNearEvent(ev):
-                    if not item.isVisible() or not item.isEnabled():
+                    if any(
+                        (
+                            not item.isVisible(),
+                            not item.isEnabled(),
+                            item is acceptedItem
+                        )
+                    ):
                         continue
                     if hasattr(item, 'mouseClickEvent'):
                         ev.currentItem = item
@@ -380,7 +390,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
                             debug.printExc("Error sending click event:")
                             
                         if ev.isAccepted():
-                            if item.flags() & item.GraphicsItemFlag.ItemIsFocusable:
+                            if item.flags() & QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsFocusable:
                                 item.setFocus(QtCore.Qt.FocusReason.MouseFocusReason)
                             break
         self.sigMouseClicked.emit(ev)
@@ -417,7 +427,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
         else:
             point = event.scenePos()
 
-        ## Sort by descending Z-order (don't trust scene.itms() to do this either)
+        ## Sort by descending Z-order (don't trust scene.items() to do this either)
         ## use 'absolute' z value, which is the sum of all item/parent ZValues
         def absZValue(item):
             if item is None:
@@ -536,6 +546,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
         self.contextMenuItem = event.acceptedItem
         return self.contextMenu
 
+    @QtCore.Slot()
     def showExportDialog(self):
         if self.exportDialog is None:
             from . import exportDialog

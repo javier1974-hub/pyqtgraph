@@ -1,5 +1,9 @@
+__all__ = ['GraphicsLayout']
+
+import warnings
+
 from .. import functions as fn
-from ..Qt import QtWidgets
+from ..Qt import QtCore, QtWidgets
 from .GraphicsWidget import GraphicsWidget
 from .LabelItem import LabelItem
 from .PlotItem import PlotItem
@@ -7,41 +11,60 @@ from .PlotItem import PlotItem
 ## Must be imported at the end to avoid cyclic-dependency hell:
 from .ViewBox import ViewBox
 
-__all__ = ['GraphicsLayout']
 class GraphicsLayout(GraphicsWidget):
     """
     Used for laying out GraphicsWidgets in a grid.
     This is usually created automatically as part of a :class:`GraphicsLayoutWidget <pyqtgraph.GraphicsLayoutWidget>`.
     """
 
-    def __init__(self, parent=None, border=None):
-        GraphicsWidget.__init__(self, parent)
+    def __init__(
+        self,
+        parent: QtWidgets.QGraphicsItem | None=None,
+        border: tuple[int, int, int] | bool | None=None
+    ):
+        super().__init__(parent)
         if border is True:
-            border = (100,100,100)
+            border = (100, 100, 100)
         elif border is False:
             border = None  
-        self.border = border
-        self.layout = QtWidgets.QGraphicsGridLayout()
-        self.setLayout(self.layout)
+        self.border: tuple[int, int, int] | None = border
+        self.layout_ = QtWidgets.QGraphicsGridLayout(self)
         self.items = {}  ## item: [(row, col), (row, col), ...]  lists all cells occupied by the item
         self.rows = {}   ## row: {col1: item1, col2: item2, ...}    maps cell location to item
         self.itemBorders = {}  ## {item1: QtWidgets.QGraphicsRectItem, ...} border rects
         self.currentRow = 0
         self.currentCol = 0
-        self.setSizePolicy(QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Expanding))
+        self.setSizePolicy(
+            QtWidgets.QSizePolicy(
+                QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Expanding
+            )
+        )
     
     #def resizeEvent(self, ev):
         #ret = GraphicsWidget.resizeEvent(self, ev)
         #print self.pos(), self.mapToDevice(self.rect().topLeft())
         #return ret
 
-    def setBorder(self, *args, **kwds):
+    @property
+    def layout(self):
+        warnings.warn(
+            """GraphicsLayout.layout access is deprecated and will be removed soon.  For
+            continuous access, access the layout via GraphicsLayout.layout_.  In future
+            versions of pyqtgraph, the layout will be accessed via
+            GraphicsLayout.layout(), matching the Qt API.
+            """,
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.layout_
+
+    def setBorder(self, *args, **kwargs):
         """
         Set the pen used to draw border between cells.
         
         See :func:`mkPen <pyqtgraph.mkPen>` for arguments.        
         """
-        self.border = fn.mkPen(*args, **kwds)
+        self.border = fn.mkPen(*args, **kwargs)
 
         for borderRect in self.itemBorders.values():
             borderRect.setPen(self.border)
@@ -59,31 +82,31 @@ class GraphicsLayout(GraphicsWidget):
         while self.getItem(self.currentRow, self.currentCol) is not None:
             self.currentCol += 1
         
-    def nextCol(self, *args, **kargs):
+    def nextCol(self, *args, **kwargs):
         """Alias of nextColumn"""
-        return self.nextColumn(*args, **kargs)
+        return self.nextColumn(*args, **kwargs)
         
-    def addPlot(self, row=None, col=None, rowspan=1, colspan=1, **kargs):
+    def addPlot(self, row=None, col=None, rowspan=1, colspan=1, **kwargs):
         """
         Create a PlotItem and place it in the next available cell (or in the cell specified)
         All extra keyword arguments are passed to :func:`PlotItem.__init__ <pyqtgraph.PlotItem.__init__>`
         Returns the created item.
         """
-        plot = PlotItem(**kargs)
+        plot = PlotItem(**kwargs)
         self.addItem(plot, row, col, rowspan, colspan)
         return plot
         
-    def addViewBox(self, row=None, col=None, rowspan=1, colspan=1, **kargs):
+    def addViewBox(self, row=None, col=None, rowspan=1, colspan=1, **kwargs):
         """
         Create a ViewBox and place it in the next available cell (or in the cell specified)
         All extra keyword arguments are passed to :func:`ViewBox.__init__ <pyqtgraph.ViewBox.__init__>`
         Returns the created item.
         """
-        vb = ViewBox(**kargs)
+        vb = ViewBox(**kwargs)
         self.addItem(vb, row, col, rowspan, colspan)
         return vb
         
-    def addLabel(self, text=' ', row=None, col=None, rowspan=1, colspan=1, **kargs):
+    def addLabel(self, text=' ', row=None, col=None, rowspan=1, colspan=1, **kwargs):
         """
         Create a LabelItem with *text* and place it in the next available cell (or in the cell specified)
         All extra keyword arguments are passed to :func:`LabelItem.__init__ <pyqtgraph.LabelItem.__init__>`
@@ -91,17 +114,17 @@ class GraphicsLayout(GraphicsWidget):
         
         To create a vertical label, use *angle* = -90.
         """
-        text = LabelItem(text, **kargs)
+        text = LabelItem(text, **kwargs)
         self.addItem(text, row, col, rowspan, colspan)
         return text
         
-    def addLayout(self, row=None, col=None, rowspan=1, colspan=1, **kargs):
+    def addLayout(self, row=None, col=None, rowspan=1, colspan=1, **kwargs):
         """
         Create an empty GraphicsLayout and place it in the next available cell (or in the cell specified)
         All extra keyword arguments are passed to :func:`GraphicsLayout.__init__ <pyqtgraph.GraphicsLayout.__init__>`
         Returns the created item.
         """
-        layout = GraphicsLayout(**kargs)
+        layout = GraphicsLayout(**kwargs)
         self.addItem(layout, row, col, rowspan, colspan)
         return layout
         
@@ -135,8 +158,8 @@ class GraphicsLayout(GraphicsWidget):
 
         item.geometryChanged.connect(self._updateItemBorder)
 
-        self.layout.addItem(item, row, col, rowspan, colspan)
-        self.layout.activate() # Update layout, recalculating bounds.
+        self.layout_.addItem(item, row, col, rowspan, colspan)
+        self.layout_.activate() # Update layout, recalculating bounds.
                                # Allows some PyQtGraph features to also work without Qt event loop.
         
         self.nextColumn()
@@ -166,26 +189,35 @@ class GraphicsLayout(GraphicsWidget):
         ValueError
             Raised if item could not be found inside the GraphicsLayout instance.
         """
-        for i in range(self.layout.count()):
-            if self.layout.itemAt(i).graphicsItem() is item:
+        for i in range(self.layout_.count()):
+            if self.layout_.itemAt(i).graphicsItem() is item:
                 return i
         raise ValueError(f"Could not determine index of item {item}")
     
     def removeItem(self, item):
         """Remove *item* from the layout."""
         ind = self.itemIndex(item)
-        self.layout.removeAt(ind)
+        
+        # Remove the item from the layout and scene
+        self.layout_.removeAt(ind)
         self.scene().removeItem(item)
         
+        # Clear the row and column where the item was
         for r, c in self.items[item]:
             del self.rows[r][c]
+        
+        # Clean up the references to the removed item
         del self.items[item]
-
         item.geometryChanged.disconnect(self._updateItemBorder)
+        
+        # Remove the item's border
         itemBorder = self.itemBorders.pop(item)
         self.scene().removeItem(itemBorder)
-
+        
+        # Recalculate the layout to reclaim the space
+        self.layout_.updateGeometry()
         self.update()
+
     
     def clear(self):
         """Remove all items from the layout and set the current row and column to 0
@@ -199,11 +231,12 @@ class GraphicsLayout(GraphicsWidget):
         # Wrap calls to layout. This should happen automatically, but there
         # seems to be a Qt bug:
         # http://stackoverflow.com/questions/27092164/margins-in-pyqtgraphs-graphicslayout
-        self.layout.setContentsMargins(*args)
+        self.layout_.setContentsMargins(*args)
 
     def setSpacing(self, *args):
-        self.layout.setSpacing(*args)
+        self.layout_.setSpacing(*args)
 
+    @QtCore.Slot()
     def _updateItemBorder(self):
         if self.border is None:
             return

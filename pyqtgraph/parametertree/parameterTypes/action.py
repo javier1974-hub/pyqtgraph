@@ -1,3 +1,4 @@
+from ... import functions as fn
 from ...Qt import QtCore, QtWidgets, QtGui
 from ..Parameter import Parameter
 from ..ParameterItem import ParameterItem
@@ -17,6 +18,7 @@ class ParameterControlledButton(QtWidgets.QPushButton):
         self.clicked.connect(parameter.activate)
         self.updateOpts(parameter, parameter.opts)
 
+    @QtCore.Slot(object, object)
     def updateOpts(self, param, opts):
         # Of the attributes that can be set on a QPushButton, only the text
         # and tooltip attributes are different from standard pushbutton names
@@ -40,6 +42,7 @@ class ParameterControlledButton(QtWidgets.QPushButton):
             setter = getattr(self, f"set{capitalized}")
             setter(opts[attr])
 
+    @QtCore.Slot(object, object)
     def onNameChange(self, param, name):
         self.updateOpts(param, dict(title=param.title()))
 
@@ -49,13 +52,13 @@ class ActionParameterItem(ParameterItem):
     def __init__(self, param, depth):
         ParameterItem.__init__(self, param, depth)
         self.layoutWidget = QtWidgets.QWidget()
-        self.layout = QtWidgets.QHBoxLayout()
-        self.layout.setContentsMargins(0, 0, 0, 0)
-        self.layoutWidget.setLayout(self.layout)
+        self.layout_ = QtWidgets.QHBoxLayout()
+        self.layout_.setContentsMargins(0, 0, 0, 0)
         self.button = ParameterControlledButton(param, self.layoutWidget)
         #self.layout.addSpacing(100)
-        self.layout.addWidget(self.button)
-        self.layout.addStretch()
+        self.layout_.addWidget(self.button)
+        self.layout_.addStretch()
+        self.layoutWidget.setLayout(self.layout_)
         self.titleChanged()
 
     def treeWidgetChanged(self):
@@ -91,6 +94,20 @@ class ActionParameter(Parameter):
     itemClass = ActionParameterItem
     sigActivated = QtCore.Signal(object)
 
+    def setValue(self, value, blockSignal=None):
+        old_value = self.opts.get('value', None)
+        if callable(old_value):
+            fn.disconnect(self.sigActivated, old_value)
+
+        value = super().setValue(value, blockSignal=blockSignal)
+
+        new_value = self.opts.get('value', None)
+        if callable(new_value):
+            self.sigActivated.connect(new_value)
+
+        return value
+
+    @QtCore.Slot()
     def activate(self):
         self.sigActivated.emit(self)
         self.emitStateChanged('activated', None)

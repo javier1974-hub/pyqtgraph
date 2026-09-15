@@ -3,6 +3,7 @@ GraphicsWidget displaying an image histogram along with gradient editor. Can be 
 adjust the appearance of images.
 """
 
+__all__ = ['HistogramLUTItem']
 
 import weakref
 
@@ -10,6 +11,9 @@ import numpy as np
 
 from .. import debug as debug
 from .. import functions as fn
+from ..colormap import ColorMap
+from ..widgets.ColorMapButton import ColorMapDisplayMixin
+from ..widgets.ColorMapMenu import ColorMapMenu
 from ..Point import Point
 from ..Qt import QtCore, QtGui, QtWidgets
 from .AxisItem import AxisItem
@@ -18,8 +22,6 @@ from .GraphicsWidget import GraphicsWidget
 from .LinearRegionItem import LinearRegionItem
 from .PlotCurveItem import PlotCurveItem
 from .ViewBox import ViewBox
-
-__all__ = ['HistogramLUTItem']
 
 
 class HistogramLUTItem(GraphicsWidget):
@@ -61,6 +63,8 @@ class HistogramLUTItem(GraphicsWidget):
     orientation : str, optional
         The orientation of the axis along which the histogram is displayed. Either
         'vertical' (default) or 'horizontal'.
+    colorMapMenu: None or `bool` or :class:`~pyqtgraph.ColorMapMenu`, default=None
+        Determines whether colormap menu functionality is enabled.
 
     Attributes
     ----------
@@ -85,9 +89,16 @@ class HistogramLUTItem(GraphicsWidget):
     sigLevelsChanged = QtCore.Signal(object)
     sigLevelChangeFinished = QtCore.Signal(object)
 
-    def __init__(self, image=None, fillHistogram=True, levelMode='mono',
-                 gradientPosition='right', orientation='vertical'):
-        GraphicsWidget.__init__(self)
+    def __init__(
+        self,
+        image=None,
+        fillHistogram=True,
+        levelMode='mono',
+        gradientPosition='right',
+        orientation='vertical',
+        colorMapMenu=None
+    ):
+        super().__init__()
         self.lut = None
         self.imageItem = lambda: None  # fake a dead weakref
         self.levelMode = levelMode
@@ -99,10 +110,10 @@ class HistogramLUTItem(GraphicsWidget):
         elif orientation == 'horizontal' and gradientPosition not in {'top', 'bottom'}:
             self.gradientPosition = 'bottom'
 
-        self.layout = QtWidgets.QGraphicsGridLayout()
-        self.setLayout(self.layout)
-        self.layout.setContentsMargins(1, 1, 1, 1)
-        self.layout.setSpacing(0)
+        self.layout_ = QtWidgets.QGraphicsGridLayout()
+        self.layout_.setContentsMargins(1, 1, 1, 1)
+        self.layout_.setSpacing(0)
+        self.setLayout(self.layout_)
 
         self.vb = ViewBox(parent=self)
         if self.orientation == 'vertical':
@@ -114,8 +125,12 @@ class HistogramLUTItem(GraphicsWidget):
             self.vb.setMinimumHeight(45)
             self.vb.setMouseEnabled(x=True, y=False)
 
-        self.gradient = GradientEditorItem(orientation=self.gradientPosition)
-        self.gradient.loadPreset('grey')
+        if colorMapMenu is None:
+            # None means use old behavior
+            self.gradient = GradientEditorItem(orientation=self.gradientPosition)
+            self.gradient.loadPreset('grey')
+        else:
+            self.gradient = GradientBarItem(orientation=orientation, colorMapMenu=colorMapMenu)
 
         # LinearRegionItem orientation refers to the bounding lines
         regionOrientation = 'horizontal' if self.orientation == 'vertical' else 'vertical'
@@ -149,16 +164,16 @@ class HistogramLUTItem(GraphicsWidget):
         # axis / viewbox / gradient order in the grid
         avg = (0, 1, 2) if self.gradientPosition in {'right', 'bottom'} else (2, 1, 0)
         if self.orientation == 'vertical':
-            self.layout.addItem(self.axis, 0, avg[0])
-            self.layout.addItem(self.vb, 0, avg[1])
-            self.layout.addItem(self.gradient, 0, avg[2])
+            self.layout_.addItem(self.axis, 0, avg[0])
+            self.layout_.addItem(self.vb, 0, avg[1])
+            self.layout_.addItem(self.gradient, 0, avg[2])
         else:
-            self.layout.addItem(self.axis, avg[0], 0)
-            self.layout.addItem(self.vb, avg[1], 0)
-            self.layout.addItem(self.gradient, avg[2], 0)
+            self.layout_.addItem(self.axis, avg[0], 0)
+            self.layout_.addItem(self.vb, avg[1], 0)
+            self.layout_.addItem(self.gradient, avg[2], 0)
 
-        self.gradient.setFlag(self.gradient.GraphicsItemFlag.ItemStacksBehindParent)
-        self.vb.setFlag(self.gradient.GraphicsItemFlag.ItemStacksBehindParent)
+        self.gradient.setFlag(QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemStacksBehindParent)
+        self.vb.setFlag(QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemStacksBehindParent)
 
         self.gradient.sigGradientChanged.connect(self.gradientChanged)
         self.vb.sigRangeChanged.connect(self.viewRangeChanged)
@@ -288,9 +303,11 @@ class HistogramLUTItem(GraphicsWidget):
         self.regionChanged()
         self.imageChanged(autoLevel=True)
 
+    @QtCore.Slot()
     def viewRangeChanged(self):
         self.update()
 
+    @QtCore.Slot()
     def gradientChanged(self):
         if self.imageItem() is not None:
             self._setImageLookupTable()
@@ -319,17 +336,20 @@ class HistogramLUTItem(GraphicsWidget):
             self.lut = self.gradient.getLookupTable(n, alpha=alpha)
         return self.lut
 
+    @QtCore.Slot()
     def regionChanged(self):
         if self.imageItem() is not None:
             self.imageItem().setLevels(self.getLevels())
         self.sigLevelChangeFinished.emit(self)
 
+    @QtCore.Slot()
     def regionChanging(self):
         if self.imageItem() is not None:
             self.imageItem().setLevels(self.getLevels())
         self.update()
         self.sigLevelsChanged.emit(self)
 
+    @QtCore.Slot()
     def imageChanged(self, autoLevel=False, autoRange=False):
         if self.imageItem() is None:
             return
@@ -478,3 +498,78 @@ class HistogramLUTItem(GraphicsWidget):
             self.setLevelMode(state['mode'])
         self.gradient.restoreState(state['gradient'])
         self.setLevels(*state['levels'])
+
+
+class GradientBarItem(ColorMapDisplayMixin, GraphicsWidget):
+    """
+    implements a compatible replacement for GradientEditorItem for the case
+    where the user doesn't need to edit the gradient
+    """
+
+    sigGradientChanged = QtCore.Signal(object)
+
+    def __init__(self, *, orientation, colorMapMenu):
+        GraphicsWidget.__init__(self)
+        ColorMapDisplayMixin.__init__(self, orientation=orientation)
+
+        if not isinstance(colorMapMenu, (bool, ColorMapMenu)):
+            raise ValueError("colorMapMenu must be either bool or an ColorMapMenu instance")
+        if isinstance(colorMapMenu, ColorMapMenu):
+            self.setMenu(colorMapMenu)
+        self.menuEnabled = colorMapMenu is not False
+
+        self.gradRect = QtWidgets.QGraphicsRectItem(self)
+        self.gradRect.setPen(QtGui.QPen(QtCore.Qt.PenStyle.NoPen))
+        self.setMaximumThickness(15)
+
+    def colorMapChanged(self):
+        # called by ColorMapDisplayMixin
+        if self.horizontal:
+            p1 = QtCore.QPointF(0, 0)
+            p2 = QtCore.QPointF(1, 0)
+        else:
+            # flip vertical coords
+            p1 = QtCore.QPointF(0, 1)
+            p2 = QtCore.QPointF(0, 0)
+        cmap = self.colorMap()
+        grad = cmap.getGradient(p1, p2)
+        grad.setCoordinateMode(QtGui.QGradient.CoordinateMode.ObjectMode)
+        self.gradRect.setBrush(QtGui.QBrush(grad))
+        self.sigGradientChanged.emit(cmap)
+
+    def resizeEvent(self, evt):
+        # to make our bar the same length as GradientEditorItem,
+        # we factor in the tickSize used there
+        rect = self.contentsRect()
+        tickSize = 15
+        if self.horizontal:
+            rect.adjust(tickSize/2, 0, -tickSize/2, 0)
+        else:
+            rect.adjust(0, tickSize/2, 0, -tickSize/2)
+        self.gradRect.setRect(rect)
+
+    def mouseClickEvent(self, ev):
+        if self.menuEnabled and ev.button() == QtCore.Qt.MouseButton.RightButton:
+            self.getMenu().popup(ev.screenPos().toPoint())
+            ev.accept()
+
+
+    # methods defined below implement the GradientEditorItem methods
+    # that are called by HistogramLUTItem
+
+    # loadPreset() is deliberately not implemented.
+    # user should just call setColorMap().
+
+    def getLookupTable(self, nPts, alpha=None):
+        return self.colorMap().getLookupTable(nPts=nPts, alpha=alpha)
+
+    def isLookupTrivial(self):
+        return self.colorMap().isMapTrivial()
+
+    def saveState(self):
+        stops = self.colorMap().getStops()
+        return dict(ticks=stops)
+
+    def restoreState(self, state):
+        pos, color = state['ticks']
+        self.setColorMap(ColorMap(pos, color))

@@ -1,4 +1,3 @@
-import collections
 import importlib.util
 import re
 
@@ -23,7 +22,8 @@ MATPLOTLIB_CMAPS = [
             'hot', 'afmhot', 'gist_heat', 'copper']),
          ('Diverging', [
             'PiYG', 'PRGn', 'BrBG', 'PuOr', 'RdGy', 'RdBu',
-            'RdYlBu', 'RdYlGn', 'Spectral', 'coolwarm', 'bwr', 'seismic']),
+            'RdYlBu', 'RdYlGn', 'Spectral', 'coolwarm', 'bwr', 'seismic',
+            'berlin', 'managua', 'vanimo']),
          ('Cyclic', ['twilight', 'twilight_shifted', 'hsv']),
          ('Qualitative', [
             'Pastel1', 'Pastel2', 'Paired', 'Accent',
@@ -35,9 +35,6 @@ MATPLOTLIB_CMAPS = [
             'gist_rainbow', 'rainbow', 'jet', 'turbo', 'nipy_spectral',
             'gist_ncar'])
     ]
-
-
-PrivateActionData = collections.namedtuple("ColorMapMenuPrivateActionData", ["name", "source"])
 
 
 def buildMenuEntryWidget(cmap, text):
@@ -65,7 +62,7 @@ def buildMenuEntryAction(menu, name, source):
     else:
         cmap = colormap.get(name, source=source)
     act = QtWidgets.QWidgetAction(menu)
-    act.setData(PrivateActionData(name, source))
+    act.setData(ColorMapMenuActionData(name, source))
     act.setDefaultWidget(buildMenuEntryWidget(cmap, name))
     menu.addAction(act)
 
@@ -80,7 +77,7 @@ def find_mpl_leftovers():
     names = [x for x in names if not x.startswith('cet_')]
     # remove the reversed colormaps
     names = [x for x in names if not x.endswith('_r')]
-    # remove entries that are already categorised
+    # remove entries that are already categorized
     known_names = set()
     for item in MATPLOTLIB_CMAPS:
         known_names.update(item[1])
@@ -151,7 +148,7 @@ class ColorMapMenu(QtWidgets.QMenu):
 
         topmenu = self
         act = topmenu.addAction('None')
-        act.setData(PrivateActionData(None, None))
+        act.setData(ColorMapMenuActionData(None, None))
 
         if userList is not None:
             buildUserSubMenu(topmenu, userList)
@@ -204,17 +201,20 @@ class ColorMapMenu(QtWidgets.QMenu):
             submenu = topmenu.addMenu('colorcet')
             submenu.aboutToShow.connect(self.buildColorcetSubMenu)
 
+    @QtCore.Slot(QtGui.QAction)
     def onTriggered(self, action):
-        if not isinstance(data := action.data(), PrivateActionData):
+        if not isinstance(data := action.data(), ColorMapMenuActionData):
             return
-        cmap = self.actionDataToColorMap(data)
+        cmap = data.toColorMap()
         self.sigColorMapTriggered.emit(cmap)
 
+    @QtCore.Slot()
     def buildGradientSubMenu(self):
         source = 'preset-gradient'
         names = list(Gradients.keys())
         self.buildSubMenu(names, source, sort=False)
 
+    @QtCore.Slot()
     def buildLocalSubMenu(self):
         source = None
         names = colormap.listMaps(source=source)
@@ -222,6 +222,7 @@ class ColorMapMenu(QtWidgets.QMenu):
         names = [x for x in names if not x.startswith('PAL-relaxed')]
         self.buildSubMenu(names, source)
 
+    @QtCore.Slot()
     def buildCetLocalSubMenu(self):
         # in Qt6 we could have used Qt.ConnectionType.SingleShotConnection
         menu = self.sender()
@@ -230,6 +231,7 @@ class ColorMapMenu(QtWidgets.QMenu):
         cet_type = menu.title()
         buildCetSubMenu(menu, source, cet_type)
 
+    @QtCore.Slot()
     def buildCetExternalSubMenu(self):
         # in Qt6 we could have used Qt.ConnectionType.SingleShotConnection
         menu = self.sender()
@@ -238,6 +240,7 @@ class ColorMapMenu(QtWidgets.QMenu):
         cet_type = menu.title()
         buildCetSubMenu(menu, source, cet_type)
 
+    @QtCore.Slot()
     def buildMplCategorySubMenu(self):
         # in Qt6 we could have used Qt.ConnectionType.SingleShotConnection
         menu = self.sender()
@@ -254,9 +257,11 @@ class ColorMapMenu(QtWidgets.QMenu):
                 # so to be safe, we wrap around try except
                 pass
 
+    @QtCore.Slot()
     def buildMplOthersSubMenu(self):
         self.buildSubMenu(find_mpl_leftovers(), "matplotlib")
 
+    @QtCore.Slot()
     def buildColorcetSubMenu(self):
         # colorcet colormaps with shorter/simpler aliases
         source = 'colorcet'
@@ -274,9 +279,13 @@ class ColorMapMenu(QtWidgets.QMenu):
         for name in names:
             buildMenuEntryAction(menu, name, source)
 
-    @staticmethod
-    def actionDataToColorMap(data):
-        name, source = data
+
+class ColorMapMenuActionData:
+    def __init__(self, *args):
+        self.args = args
+
+    def toColorMap(self):
+        name, source = self.args
         if isinstance(source, colormap.ColorMap):
             cmap = source
         elif name is None:

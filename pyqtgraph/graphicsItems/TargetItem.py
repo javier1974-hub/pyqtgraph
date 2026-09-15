@@ -38,7 +38,7 @@ class TargetItem(UIGraphicsItem):
         r"""
         Parameters
         ----------
-        pos : list, tuple, QPointF, QPoint, Optional
+        pos : list, tuple, QPointF, QPoint, optional
             Initial position of the symbol.  Default is (0, 0)
         size : int
             Size of the symbol in pixels.  Default is 10.
@@ -106,26 +106,50 @@ class TargetItem(UIGraphicsItem):
             pos = Point(0, 0)
         self.setPos(pos)
 
+        self._path = None
+        self.setSymbol(symbol)
+
+        self.scale = size
+        self.setLabel(label, labelOpts)
+
+    def setSymbol(self, symbol):
+        """Method to set the TargetItem symbol, during or after creation
+
+        Parameters
+        ----------
+        symbol : QPainterPath or str
+            QPainterPath to use for drawing the target, should be centered at
+            ``(0, 0)`` with ``max(width, height) == 1.0``.  Alternatively a string
+            which can be any symbol accepted by
+            :func:`~pyqtgraph.ScatterPlotItem.setSymbol`
+
+        Raises
+        ------
+        KeyError
+            If ``symbol`` string is unknown
+
+        TypeError
+            If unknown type is is provided as ``symbol``
+
+        """
         if isinstance(symbol, str):
             try:
-                self._path = Symbols[symbol]
+                path = Symbols[symbol]
             except KeyError:
-                raise KeyError("symbol name found in available Symbols")
+                raise KeyError(f"Symbol name '{symbol}' not found in available Symbols")
         elif isinstance(symbol, QtGui.QPainterPath):
-            self._path = symbol
+            path = symbol
         else:
             raise TypeError("Unknown type provided as symbol")
 
-        self.scale = size
-        self.setPath(self._path)
-        self.setLabel(label, labelOpts)
+        self.setPath(path)
 
     def setPos(self, *args):
         """Method to set the position to ``(x, y)`` within the plot view
 
         Parameters
         ----------
-        args : tuple or list or QtCore.QPointF or QtCore.QPoint or Point or float
+        args : QtCore.QPointF or QtCore.QPoint or Point or float
             Two float values or a container that specifies ``(x, y)`` position where the
             TargetItem should be placed
 
@@ -208,7 +232,7 @@ class TargetItem(UIGraphicsItem):
         return self._shape
 
     def generateShape(self):
-        dt = self.deviceTransform()
+        dt = self.deviceTransform_()
         if dt is None:
             self._shape = self._path
             return None
@@ -334,7 +358,7 @@ class TargetLabel(TextItem):
     ----------
     target : TargetItem
         The TargetItem to which this label will be attached to.
-    text : str or callable, Optional
+    text : str or callable, optional
         Governs the text displayed, can be a fixed string or a format string
         that accepts the x, and y position of the target item; or be a callable
         method that accepts a tuple (x, y) and returns a string to be displayed.
@@ -345,7 +369,7 @@ class TargetLabel(TextItem):
     anchor : tuple or list or QPointF or QPoint
         Position to rotate the TargetLabel about, and position to set the
         offset value to see :class:`~pyqtgraph.TextItem` for more information.
-    kwargs : dict 
+    **kwargs
         kwargs contains arguments that are passed onto
         :class:`~pyqtgraph.TextItem` constructor, excluding text parameter
     """

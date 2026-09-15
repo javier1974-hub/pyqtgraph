@@ -95,7 +95,8 @@ def test_preferred_utc_offset_respects_chosen_offset():
     assert getPreferredOffsetFromUtc(0, -7200) == -7200
 
 
-def test_preferred_utc_offset_doesnt_break_with_big_timestamps():
+@pytest.mark.qt_no_exception_capture
+def test_preferred_utc_offset_does_not_break_with_big_timestamps():
     timestamp = SEC_PER_YEAR ** 13
 
     assert -16 * 3600 <= getPreferredOffsetFromUtc(timestamp) <= 16 * 3600

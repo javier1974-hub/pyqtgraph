@@ -231,6 +231,7 @@ class TreeWidget(QtWidgets.QTreeWidget):
         QtWidgets.QTreeWidget.setColumnCount(self, c)
         self.sigColumnCountChanged.emit(self, c)
 
+    @QtCore.Slot(QtWidgets.QTreeWidgetItem, int)
     def _itemClicked(self, item, col):
         if hasattr(item, 'itemClicked'):
             item.itemClicked(col)
@@ -329,7 +330,7 @@ class TreeWidgetItem(QtWidgets.QTreeWidgetItem):
         return childs
         
     def setData(self, column, role, value):
-        # credit: ekhumoro
+        # credit: @ekhumoro
         #   http://stackoverflow.com/questions/13662020/how-to-implement-itemchecked-and-itemunchecked-signals-for-qtreewidget-in-pyqt4
         checkstate = self.checkState(column)
         text = self.text(column)

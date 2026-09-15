@@ -1,6 +1,6 @@
 from ..Parameter import registerParameterType
 from .action import ActionParameter, ActionParameterItem
-from .actiongroup import ActionGroup, ActionGroupParameter, ActionGroupParameterItem
+from .actiongroup import ActionGroupParameter, ActionGroupParameterItem
 from .basetypes import (
     GroupParameter,
     GroupParameterItem,
@@ -8,6 +8,7 @@ from .basetypes import (
     WidgetParameterItem,
 )
 from .bool import BoolParameterItem
+from .brush import BrushParameter, BrushParameterItem
 from .calendar import CalendarParameter, CalendarParameterItem
 from .checklist import ChecklistParameter, ChecklistParameterItem
 from .color import ColorParameter, ColorParameterItem
@@ -30,6 +31,7 @@ registerParameterType('_actiongroup', ActionGroupParameter, override=True)
 
 registerParameterType('action',    ActionParameter,      override=True)
 registerParameterType('bool',      SimpleParameter,      override=True)
+registerParameterType('brush',     BrushParameter,       override=True)
 registerParameterType('calendar',  CalendarParameter,    override=True)
 registerParameterType('checklist', ChecklistParameter,   override=True)
 registerParameterType('cmaplut',   ColorMapLutParameter, override=True)

@@ -156,26 +156,25 @@ class LinearRegionItem(GraphicsObject):
             return
         self.blockLineSignal = True
         self.lines[0].setValue(rgn[0])
-        self.blockLineSignal = False
         self.lines[1].setValue(rgn[1])
-        #self.blockLineSignal = False
         self.lineMoved(0)
+        self.blockLineSignal = False
         self.lineMoved(1)
         self.lineMoveFinished()
 
-    def setBrush(self, *br, **kargs):
+    def setBrush(self, *br, **kwargs):
         """Set the brush that fills the region. Can have any arguments that are valid
         for :func:`mkBrush <pyqtgraph.mkBrush>`.
         """
-        self.brush = fn.mkBrush(*br, **kargs)
+        self.brush = fn.mkBrush(*br, **kwargs)
         self.currentBrush = self.brush
 
-    def setHoverBrush(self, *br, **kargs):
+    def setHoverBrush(self, *br, **kwargs):
         """Set the brush that fills the region when the mouse is hovering over.
         Can have any arguments that are valid
         for :func:`mkBrush <pyqtgraph.mkBrush>`.
         """
-        self.hoverBrush = fn.mkBrush(*br, **kargs)
+        self.hoverBrush = fn.mkBrush(*br, **kwargs)
 
     def setBounds(self, bounds):
         """Set ``(min, max)`` bounding values for the region.
@@ -294,12 +293,15 @@ class LinearRegionItem(GraphicsObject):
         self.prepareGeometryChange()
         self.sigRegionChanged.emit(self)
 
+    @QtCore.Slot()
     def _line0Moved(self):
         self.lineMoved(0)
 
+    @QtCore.Slot()
     def _line1Moved(self):
         self.lineMoved(1)
 
+    @QtCore.Slot()
     def lineMoveFinished(self):
         self.sigRegionChangeFinished.emit(self)
 
@@ -317,11 +319,11 @@ class LinearRegionItem(GraphicsObject):
         if not self.moving:
             return
             
-        self.lines[0].blockSignals(True)  # only want to update once
+        self.blockLineSignal = True  # only want to update once
         for i, l in enumerate(self.lines):
             l.setPos(self.cursorOffsets[i] + ev.pos())
-        self.lines[0].blockSignals(False)
         self.prepareGeometryChange()
+        self.blockLineSignal = False
         
         if ev.isFinish():
             self.moving = False

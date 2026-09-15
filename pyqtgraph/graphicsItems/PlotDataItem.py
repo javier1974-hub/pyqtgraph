@@ -78,6 +78,10 @@ class PlotDataset:
     yAllFinite : bool or None, default None
         Label for `y` data points, indicating if all values are finite, or not, and
         unknown if ``None``.
+    connect : np.ndarray or None, default None
+        Array of boolean values indicating if points are connected. This is only
+        populated if the PlotDataItem's `connect` argument is set to a numpy array.
+        Otherwise, will be None.
 
     Warnings
     --------
@@ -93,13 +97,15 @@ class PlotDataset:
         x: np.ndarray,
         y: np.ndarray,
         xAllFinite: bool | None = None,
-        yAllFinite: bool | None = None
+        yAllFinite: bool | None = None,
+        connect: np.ndarray | None = None
     ):
         super().__init__()
         self.x = x
         self.y = y
         self.xAllFinite = xAllFinite
         self.yAllFinite = yAllFinite
+        self.connect = connect
         self._dataRect = None
 
         if isinstance(x, np.ndarray) and x.dtype.kind in 'iu':
@@ -138,7 +144,8 @@ class PlotDataset:
             # are ignored.
             selection = np.isfinite(arr)
             # True if all values are finite, False if there are any non-finites
-            if not selection.all():
+            all_finite = bool(selection.all())
+            if not all_finite:
                 arr = arr[selection]
         
         # here all_finite could be [False, True]
@@ -207,7 +214,7 @@ class PlotDataset:
 class PlotDataItem(GraphicsObject):
     """
     PlotDataItem is PyQtGraph's primary way to plot 2D data.
-    
+
     It provides a unified interface for displaying plot curves, scatter plots, or both.
     The library's convenience functions such as :func:`pyqtgraph.plot` create
     PlotDataItem objects.
@@ -225,17 +232,18 @@ class PlotDataItem(GraphicsObject):
     is the recommended way to interact with them.
 
     PlotDataItem contains methods to transform the original data:
-      
+
     * :meth:`setDerivativeMode`
     * :meth:`setPhasemapMode`
     * :meth:`setFftMode`
     * :meth:`setLogMode`
+    * :meth:`setSubtractMeanMode`
 
-    It can pre-process large data sets to accelerate plotting:
-    
+    It can handle data in special ways to accelerate plotting of large data sets:
+
     * :meth:`setDownsampling`
     * :meth:`setClipToView`
-    
+
     PlotDataItem's performance is usually sufficient for real-time interaction even for
     large numbers of points. If you do encounter performance issues, consider the
     following.
@@ -258,7 +266,7 @@ class PlotDataItem(GraphicsObject):
 
     Parameters
     ----------
-    *args : tuple, optional
+    *args
         Arguments representing the `x` and `y` data to be drawn. The following are
         examples for initializing data.
 
@@ -286,7 +294,7 @@ class PlotDataItem(GraphicsObject):
         When using spot-style arguments, it is always possible to give coordinate data
         separately through the `x` and `y` keyword arguments.
     
-    **kwargs : dict, optional
+    **kwargs
         The supported keyword arguments can be grouped into several categories:
 
         *Point Style Keyword Arguments*, see
@@ -584,7 +592,8 @@ class PlotDataItem(GraphicsObject):
         self.opts = {
             # defaults to 'all', unless overridden to 'finite' for log-scaling
             'connect': 'auto',
-            'skipFiniteCheck': False, 
+            'skipFiniteCheck': False,
+            'subtractMeanMode': False,
             'fftMode': False,
             'logMode': [False, False],
             'derivativeMode': False,
@@ -620,6 +629,10 @@ class PlotDataItem(GraphicsObject):
         }
         self.setCurveClickable(kwargs.get('clickable', False))
         self.setData(*args, **kwargs)
+    
+    # Fix "NotImplementedError: QGraphicsObject.paint() is abstract and must be overridden"
+    def paint(self, *args):
+        ...
     
     # Compatibility with direct property access to previous xData and yData structures:
     @property
@@ -752,6 +765,26 @@ class PlotDataItem(GraphicsObject):
         self.updateItems(styleUpdate=False)
         self.informViewBoundsChanged()
 
+    def setSubtractMeanMode(self, state: bool):
+        """
+        Enable mean value subtraction mode.
+
+        In mean value subtraction mode, the data is mapped according to ``y_mapped = y - mean(y)``.
+
+        Parameters
+        ----------
+        state : bool
+            Enable mean subtraction mode.
+        """
+        if self.opts['subtractMeanMode'] == state:
+            return
+        self.opts['subtractMeanMode'] = state
+        self._datasetMapped = None  # invalidate mapped data
+        self._datasetDisplay = None  # invalidate display data
+        self._adsLastValue = 1  # reset auto-downsample value
+        self.updateItems(styleUpdate=False)
+        self.informViewBoundsChanged()
+
     def setDerivativeMode(self, state: bool):
         """
         Enable derivative mode.
@@ -802,10 +835,10 @@ class PlotDataItem(GraphicsObject):
 
         Parameters
         ----------
-        *args : tuple or None
+        *args
             :class:`QPen`, or parameters for a QPen constructed by 
             :func:`mkPen <pyqtgraph.mkPen>`. Use ``None`` to disable drawing of lines.
-        **kwargs : dict
+        **kwargs
             Alternative specification of arguments directed to
             :func:`mkPen <pyqtgraph.mkPen>`.
         """
@@ -823,10 +856,10 @@ class PlotDataItem(GraphicsObject):
 
         Parameters
         ----------
-        *args : tuple or None
+        *args
             :class:`QPen`, or parameters for a QPen constructed by 
             :func:`mkPen <pyqtgraph.mkPen>`. Use ``None`` to disable the shadow pen.
-        **kwargs : dict
+        **kwargs
             Alternative specification of arguments directed to
             :func:`mkPen <pyqtgraph.mkPen>`.
         """
@@ -845,11 +878,11 @@ class PlotDataItem(GraphicsObject):
 
         Parameters
         ----------
-        *args : tuple
+        *args
             :class:`QBrush`, or parameters for a QBrush constructed by
             :func:`mkBrush <pyqtgraph.mkBrush>`. Also accepts a color specifier
             understood by :func:`mkColor <pyqtgraph.mkColor>`.
-        **kwargs : dict
+        **kwargs
             Alternative specification of arguments directed to
             :func:`mkBrush <pyqtgraph.mkBrush>`.
         """
@@ -868,11 +901,11 @@ class PlotDataItem(GraphicsObject):
 
         Parameters
         ----------
-        *args : tuple
+        *args
             :class:`QBrush`, or parameters for a QBrush constructed by
             :func:`mkBrush <pyqtgraph.mkBrush>`. Also accepts a color specifier
             understood by :func:`mkColor <pyqtgraph.mkColor>`.
-        **kwargs : dict
+        **kwargs
             Alternative specification of arguments directed to
             :func:`mkBrush <pyqtgraph.mkBrush>`.
         """
@@ -936,10 +969,10 @@ class PlotDataItem(GraphicsObject):
 
         Parameters
         ----------
-        *args : tuple
+        *args
             :class:`QPen`, or parameters for a QPen constructed by 
             :func:`mkPen <pyqtgraph.mkPen>`.
-        **kwargs : dict
+        **kwargs
             Alternative specification of arguments directed to
             :func:`mkPen <pyqtgraph.mkPen>`.
         """
@@ -957,11 +990,11 @@ class PlotDataItem(GraphicsObject):
 
         Parameters
         ----------
-        *args : tuple
+        *args
             :class:`QBrush`, or parameters for a QBrush constructed by
             :func:`mkBrush <pyqtgraph.mkBrush>`. Also accepts a color specifier
             understood by :func:`mkColor <pyqtgraph.mkColor>`.
-        **kwargs : dict
+        **kwargs
             Alternative specification of arguments directed to
             :func:`mkBrush <pyqtgraph.mkBrush>`.
         """
@@ -972,13 +1005,13 @@ class PlotDataItem(GraphicsObject):
         #self.scatter.setSymbolBrush(brush)
         self.updateItems(styleUpdate=True)
 
-    def setSymbolSize(self, size: int):
+    def setSymbolSize(self, size: int | list[int]):
         """
         Set the symbol size or sizes.
 
         Parameters
         ----------
-        size : int | list[int]
+        size : int or list of int
             Diameter of the symbols, or array-like list of diameters. Diameter is
             either in pixels or data-space coordinates depending on the value of
             `pxMode`.
@@ -1039,7 +1072,10 @@ class PlotDataItem(GraphicsObject):
         """
         Clip the displayed data to the visible range of the x-axis.
 
-        This setting can result in significant performance improvements. 
+        This setting can result in significant performance improvements.
+
+        The X data must be sorted in ascending order. Otherwise, the behaviour
+        is erratic.
 
         Parameters
         ----------
@@ -1125,9 +1161,9 @@ class PlotDataItem(GraphicsObject):
 
         Parameters
         ----------
-        *args : tuple
+        *args
             See :class:`PlotDataItem` description for supported arguments.
-        **kwargs : dict
+        **kwargs
             See :class:`PlotDataItem` description for supported arguments.
 
         Raises
@@ -1156,7 +1192,12 @@ class PlotDataItem(GraphicsObject):
             elif dt == 'Nx2array':
                 x = data[:, 0]
                 y = data[:, 1]
-            elif dt == 'recarray' or dt == 'dictOfLists':
+            elif dt == 'recarray':
+                if "x" in data.dtype.names:
+                    x = data["x"]
+                if "y" in data.dtype.names:
+                    y = data["y"]
+            elif dt == 'dictOfLists':
                 if 'x' in data:
                     x = np.array(data['x'])
                 if 'y' in data:
@@ -1169,7 +1210,7 @@ class PlotDataItem(GraphicsObject):
                 for k in [
                     'data', 'symbolSize', 'symbolPen', 'symbolBrush', 'symbolShape'
                 ]:
-                    if k in data:
+                    if k in data[0]:
                         kwargs[k] = [d.get(k) for d in data]
             else:
                 raise TypeError('Invalid data type %s' % type(data))
@@ -1289,7 +1330,7 @@ class PlotDataItem(GraphicsObject):
         Update the displayed curve and scatter plot.
 
         This method is called internally to redraw the curve and scatter plot when the
-        data or graphics style has been updated. It is not usally necessary to call this
+        data or graphics style has been updated. It is not usually necessary to call this
         from user code. 
 
         Parameters
@@ -1345,6 +1386,8 @@ class PlotDataItem(GraphicsObject):
 
         x = dataset.x
         y = dataset.y
+        if dataset.connect is not None:
+            curveArgs['connect'] = dataset.connect
         #scatterArgs['mask'] = self.dataMask
         if (
             self.opts['pen'] is not None
@@ -1434,6 +1477,8 @@ class PlotDataItem(GraphicsObject):
                 y = y.astype(np.uint8)
             if x.dtype == bool:
                 x = x.astype(np.uint8)
+            if self.opts['subtractMeanMode']:
+                y = y - np.mean(y)
             if self.opts['fftMode']:
                 x, y = self._fourierTransform(x, y)
                 # Ignore the first bin for fft data if we have a logx scale
@@ -1509,6 +1554,7 @@ class PlotDataItem(GraphicsObject):
             self._adsLastValue = ds
             # downsampling is expensive; delay until after clipping.
 
+        connect = self.opts['connect'] if isinstance(self.opts['connect'], np.ndarray) else None
         if self.opts['clipToView']:
             if view is None or view.autoRangeEnabled()[0]:
                 pass  # no ViewBox to clip to, or view will autoscale to data range.
@@ -1534,17 +1580,24 @@ class PlotDataItem(GraphicsObject):
                     x1 = fn.clip_scalar(x1, x0, len(x))
                     x = x[x0:x1]
                     y = y[x0:x1]
+                    if connect is not None:
+                        connect = connect[x0:x1]
+
 
         if ds > 1:
             if self.opts['downsampleMethod'] == 'subsample':
                 x = x[::ds]
                 y = y[::ds]
+                if connect is not None:
+                    connect = connect[::ds]
             elif self.opts['downsampleMethod'] == 'mean':
                 n = len(x) // ds
                 # start of x-values try to select a somewhat centered point
                 stx = ds // 2
                 x = x[stx:stx + n * ds:ds]
                 y = y[:n * ds].reshape(n, ds).mean(axis=1)
+                if connect is not None:
+                    connect = connect[:n*ds].reshape(n,ds).all(axis=1)
             elif self.opts['downsampleMethod'] == 'peak':
                 n = len(x) // ds
                 x1 = np.empty((n, 2))
@@ -1557,6 +1610,10 @@ class PlotDataItem(GraphicsObject):
                 y1[:, 0] = y2.max(axis=1)
                 y1[:, 1] = y2.min(axis=1)
                 y = y1.reshape(n * 2)
+                if connect is not None:
+                    c = np.ones((n*2), dtype=bool)
+                    c[1::2] = connect[:n*ds].reshape(n,ds).all(axis=1)
+                    connect = c
 
         if self.opts['dynamicRangeLimit'] is not None and view_range is not None:
             data_range = self._datasetMapped.dataRect()
@@ -1597,7 +1654,7 @@ class PlotDataItem(GraphicsObject):
                         max_val = view_range.top()    + limit * view_height
                         y = fn.clip_array(y, min_val, max_val)
                         self._drlLastClip = (min_val, max_val)
-        self._datasetDisplay = PlotDataset(x, y, xAllFinite, yAllFinite)
+        self._datasetDisplay = PlotDataset(x, y, xAllFinite, yAllFinite, connect)
         self.setProperty('xViewRangeWasChanged', False)
         self.setProperty('yViewRangeWasChanged', False)
 
@@ -1715,6 +1772,7 @@ class PlotDataItem(GraphicsObject):
     def appendData(self, *args, **kwargs):
         pass
 
+    @QtCore.Slot(object, object)
     def curveClicked(self, _: PlotCurveItem, ev):
         warnings.warn(
             (
@@ -1724,10 +1782,12 @@ class PlotDataItem(GraphicsObject):
         )
         self.sigClicked.emit(self, ev)
 
+    @QtCore.Slot(object, object, object)
     def scatterClicked(self, _, points, ev):
         self.sigClicked.emit(self, ev)
         self.sigPointsClicked.emit(self, points, ev)
 
+    @QtCore.Slot(object, object, object)
     def scatterHovered(self, _, points, ev):
         warnings.warn(
             (
@@ -1744,6 +1804,8 @@ class PlotDataItem(GraphicsObject):
     # update curve and scatter later than intended.
     #   super().viewTransformChanged() # this invalidates the viewRect() cache!
         
+    @QtCore.Slot(object, object)
+    @QtCore.Slot(object, object, object)
     def viewRangeChanged(self, vb=None, ranges=None, changed=None):
         # view range has changed; re-plot if needed 
         update_needed = False

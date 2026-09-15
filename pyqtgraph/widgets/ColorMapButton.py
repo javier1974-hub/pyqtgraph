@@ -1,9 +1,9 @@
 import numpy as np
 
-from .ColorMapMenu import ColorMapMenu
 from .. import colormap
 from .. import functions as fn
 from ..Qt import QtCore, QtGui, QtWidgets
+from .ColorMapMenu import ColorMapMenu
 
 __all__ = ['ColorMapButton']
 
@@ -36,6 +36,7 @@ class ColorMapDisplayMixin:
         self._cmap = cmap
         self._image = None
 
+    @QtCore.Slot(object)
     def setColorMap(self, cmap):
         # calls main class methods
         self._setColorMap(cmap)
@@ -49,16 +50,27 @@ class ColorMapDisplayMixin:
             lut = self._cmap.getLookupTable(nPts=256, alpha=True)
             lut = np.expand_dims(lut, axis=0 if self.horizontal else 1)
             qimg = fn.ndarray_to_qimage(lut, QtGui.QImage.Format.Format_RGBA8888)
-            self._image = qimg if self.horizontal else qimg.mirrored()
+            if self.horizontal:
+                # make a copy to remove dependency on ndarray
+                self._image = qimg.copy()
+            else:
+                # QImage.flipped() since Qt 6.9
+                # QImage.mirrored() to be deprecated from Qt 6.13
+                self._image = qimg.flipped() if hasattr(qimg, 'flipped') else qimg.mirrored()
         return self._image
+
+    def setMenu(self, menu : ColorMapMenu):
+        self._menu = menu
+        self._menu.sigColorMapTriggered.connect(self.setColorMap)
 
     def getMenu(self):
         if self._menu is None:
-            self._menu = ColorMapMenu(showColorMapSubMenus=True)
-            self._menu.sigColorMapTriggered.connect(self.setColorMap)
+            menu = ColorMapMenu(showColorMapSubMenus=True)
+            self.setMenu(menu)
         return self._menu
 
     def paintColorMap(self, painter, rect):
+        # rect can be either a QRect or a QRectF
         painter.save()
         image = self.getImage()
         painter.drawImage(rect, image)
@@ -74,21 +86,14 @@ class ColorMapDisplayMixin:
         # get an estimate of the lightness of the colormap
         # from its center element
         lightness = image.pixelColor(image.rect().center()).lightnessF()
-        if lightness >= 0.5:
-            # light: draw text with dark pen
-            pens = [wpen, bpen]
-        else:
-            # dark: draw text with light pen
-            pens = [bpen, wpen]
+        pen = bpen if lightness >= 0.55 else wpen
 
         AF = QtCore.Qt.AlignmentFlag
         trect = painter.boundingRect(rect, AF.AlignCenter, text)
-        # draw a background shadow
-        painter.setPen(pens[0])
-        painter.drawText(trect, 0, text)
         # draw the foreground text
-        painter.setPen(pens[1])
-        painter.drawText(trect.adjusted(1,0,1,0), 0, text)
+        painter.setPen(pen)
+        # trect has the same type as rect (QRect or QRectF)
+        painter.drawText(trect, 0, text)
 
         painter.restore()
 
